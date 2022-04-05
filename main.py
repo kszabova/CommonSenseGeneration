@@ -62,6 +62,10 @@ class CommonGenModel(pl.LightningModule):
 
         return {'loss': val_loss}
 
+    def validation_epoch_end(self, outputs):
+        val_loss = torch.stack([x["loss"] for x in outputs]).mean()
+        return self.log("loss", val_loss)
+
     def generate_text(self, text, eval_beams, early_stopping = True, max_len = 40):
         ''' Function to generate text '''
         generated_ids = self.model.generate(
@@ -131,13 +135,15 @@ model = BartForConditionalGeneration.from_pretrained(
 common_gen_data = CommonGenDataModule(3, tokenizer)
 common_gen_model = CommonGenModel(2e-5, tokenizer, model, None)
 
-checkpoint = pl.callbacks.ModelCheckpoint('/Users/kristina/Documents/diplomovka/checkpoints/')
+checkpoint = pl.callbacks.ModelCheckpoint('./checkpoints/')
 trainer = pl.Trainer(
-    gpus=0,
+    default_root_dir='.',
+    gpus=1,
     max_epochs=1,
     min_epochs=1,
     auto_lr_find=False,
-    enable_checkpointing=checkpoint
+    callbackks=[checkpoint]
 )
 
 trainer.fit(common_gen_model, common_gen_data)
+trainer.validate(common_gen_model, common_gen_data)
