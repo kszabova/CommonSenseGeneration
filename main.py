@@ -7,76 +7,79 @@ import torch
 
 from datasets import load_dataset
 from transformers import (
-    BartTokenizer
+    BartTokenizer,
+    BartForConditionalGeneration,
+    BartConfig,
+    AdamW
 )
 
-dataset = load_dataset("common_gen")
-print(dataset.keys())
-
-word_sep_token = '<|KEYWORD|>'
-kw_sep_token = '<|PROMPT|>'
-tokenizer = BartTokenizer.from_pretrained(
-    "facebook/bart-base"
-)
-
-def collate_batch(batch):
-
-    concepts = [" ".join(data['concepts']) for data in batch]
-    targets = [data['target'] for data in batch]
-    tokenized_concepts = tokenizer(concepts, padding=True, return_tensors='pt')
-    tokenized_targets = tokenizer(targets, padding=True, return_tensors='pt')
-
-    return {
-        'input_ids': tokenized_concepts['input_ids'],
-        'attention_mask': tokenized_concepts['attention_mask'],
-        'labels': tokenized_targets['input_ids']
-    }
-
-# dataloader = DataLoader(dataset["train"], collate_fn=collate_batch, batch_size=3, shuffle=True)
-# for batch in dataloader:
-#     print(batch)
-#     break
-
-# class CommonSenseModel(pl.LightningModule):
+class CommonGenModel(pl.LightningModule):
     
-#     def __init__(self, learning_rate, tokenizer, model, hparams):
-#         super().__init__()
-#         self.tokenizer = tokenizer
-#         self.model = model
-#         self.learning_rate = learning_rate
+    def __init__(self, learning_rate, tokenizer, model, hparams):
+        super().__init__()
+        self.tokenizer = tokenizer
+        self.model = model
+        self.learning_rate = learning_rate
 
-#     # Do a forward pass through the model
-#     def forward(self, input_ids, **kwargs):
-#         return self.model(input_ids, **kwargs)
+    # Do a forward pass through the model
+    def forward(self, input_ids, **kwargs):
+        return self.model(input_ids, **kwargs)
 
-#     def configure_optimizers(self):
-#         optimizer = torch.optim.Adam(self.parameters(), lr = self.learning_rate)
-#         return optimizer
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.parameters(), lr = self.learning_rate)
+        return optimizer
 
-#     def training_step(self, batch, batch_idx):
-#         # Load the data into variables
-#         src_ids, src_mask = batch[0], batch[1]
-#         tgt_ids = batch[2]
-#         # Shift the decoder tokens right (but NOT the tgt_ids)
-#         #decoder_input_ids = shift_tokens_right(tgt_ids, tokenizer.pad_token_id)
+    def training_step(self, batch, batch_idx):
+        # Load the data into variables
+        src_ids, src_mask = batch['input_ids'], batch['attention_mask']
+        tgt_ids = batch['labels']
+        # Shift the decoder tokens right (but NOT the tgt_ids)
+        decoder_input_ids = shift_tokens_right(tgt_ids, self.tokenizer.pad_token_id)
 
-#         # Run the model and get the logits
-#         outputs = self(src_ids, attention_mask=src_mask, decoder_input_ids=decoder_input_ids, use_cache=False)
-#         lm_logits = outputs[0]
-#         # Create the loss function
-#         ce_loss_fct = torch.nn.CrossEntropyLoss(ignore_index=self.tokenizer.pad_token_id)
-#         # Calculate the loss on the un-shifted tokens
-#         loss = ce_loss_fct(lm_logits.view(-1, lm_logits.shape[-1]), tgt_ids.view(-1))
+        # Run the model and get the logits
+        outputs = self(src_ids, attention_mask=src_mask, decoder_input_ids=decoder_input_ids, use_cache=False)
+        lm_logits = outputs[0]
+        # Create the loss function
+        ce_loss_fct = torch.nn.CrossEntropyLoss(ignore_index=self.tokenizer.pad_token_id)
+        # Calculate the loss on the un-shifted tokens
+        loss = ce_loss_fct(lm_logits.view(-1, lm_logits.shape[-1]), tgt_ids.view(-1))
 
-#         return {'loss':loss}
+        return {'loss':loss}
+
+    def validation_step(self, batch, batch_idx):
+
+        src_ids, src_mask = batch['input_ids'], batch['attention_mask']
+        tgt_ids = batch['labels']
+
+        decoder_input_ids = shift_tokens_right(tgt_ids, self.tokenizer.pad_token_id)
+        
+        # Run the model and get the logits
+        outputs = self(src_ids, attention_mask=src_mask, decoder_input_ids=decoder_input_ids, use_cache=False)
+        lm_logits = outputs[0]
+
+        ce_loss_fct = torch.nn.CrossEntropyLoss(ignore_index=self.tokenizer.pad_token_id)
+        val_loss = ce_loss_fct(lm_logits.view(-1, lm_logits.shape[-1]), tgt_ids.view(-1))
+
+        return {'loss': val_loss}
+
+    def generate_text(self, text, eval_beams, early_stopping = True, max_len = 40):
+        ''' Function to generate text '''
+        generated_ids = self.model.generate(
+            text["input_ids"],
+            attention_mask=text["attention_mask"],
+            use_cache=True,
+            decoder_start_token_id = self.tokenizer.pad_token_id,
+            num_beams= eval_beams,
+            max_length = max_len,
+            early_stopping = early_stopping
+        )
+        return [self.tokenizer.decode(w, skip_special_tokens=True, clean_up_tokenization_spaces=True) for w in generated_ids]
 
 
 class CommonGenDataModule(pl.LightningDataModule):
-    def __init__(self, batch_size):
+    def __init__(self, batch_size, tokenizer):
         super().__init__()
-        self.tokenizer = BartTokenizer.from_pretrained(
-            "facebook/bart-base"
-        )
+        self.tokenizer = BartTokenizer.from_pretrained('facebook/bart-base')
         self.batch_size = batch_size
         self.dataset = load_dataset('common_gen')
         self.setup(None)
@@ -89,11 +92,11 @@ class CommonGenDataModule(pl.LightningDataModule):
     def train_dataloader(self):
         return DataLoader(self.train, batch_size=self.batch_size, collate_fn=self._collate_batch, shuffle=True)
 
-    def validation_dataloader(self):
-        return DataLoader(self.validation, batch_size=self.batch_size, collate_fn=self._collate_batch, shuffle=True)
+    def val_dataloader(self):
+        return DataLoader(self.validation, batch_size=self.batch_size, collate_fn=self._collate_batch)
 
     def test_dataloader(self):
-        return DataLoader(self.test, batch_size=self.batch_size, collate_fn=self._collate_batch, shuffle=True)
+        return DataLoader(self.test, batch_size=self.batch_size, collate_fn=self._collate_batch)
 
     def _collate_batch(self, batch):
         concepts = [" ".join(data['concepts']) for data in batch]
@@ -108,8 +111,33 @@ class CommonGenDataModule(pl.LightningDataModule):
         }
 
 
-data_module = CommonGenDataModule(3)
-train = data_module.train_dataloader()
-for batch in train:
-    print(batch)
-    break
+def shift_tokens_right(input_ids, pad_token_id):
+  """ Shift input ids one token to the right, and wrap the last non pad token (usually <eos>).
+      This is taken directly from modeling_bart.py
+  """
+  prev_output_tokens = input_ids.clone()
+  index_of_eos = (input_ids.ne(pad_token_id).sum(dim=1) - 1).unsqueeze(-1)
+  prev_output_tokens[:, 0] = input_ids.gather(1, index_of_eos).squeeze()
+  prev_output_tokens[:, 1:] = input_ids[:, :-1]
+  return prev_output_tokens
+
+
+tokenizer = BartTokenizer.from_pretrained(
+    'facebook/bart-base'
+)
+model = BartForConditionalGeneration.from_pretrained(
+    'facebook/bart-base'
+)
+common_gen_data = CommonGenDataModule(3, tokenizer)
+common_gen_model = CommonGenModel(2e-5, tokenizer, model, None)
+
+checkpoint = pl.callbacks.ModelCheckpoint('/Users/kristina/Documents/diplomovka/checkpoints/')
+trainer = pl.Trainer(
+    gpus=0,
+    max_epochs=1,
+    min_epochs=1,
+    auto_lr_find=False,
+    enable_checkpointing=checkpoint
+)
+
+trainer.fit(common_gen_model, common_gen_data)
