@@ -142,7 +142,7 @@ trainer = pl.Trainer(
     max_epochs=1,
     min_epochs=1,
     auto_lr_find=False,
-    callbackks=[checkpoint]
+    callbacks=[checkpoint]
 )
 
 trainer.fit(common_gen_model, common_gen_data)
