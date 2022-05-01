@@ -2,8 +2,13 @@ from torch.utils.data import (
     Dataset,
     DataLoader
 )
+from torchmetrics import (
+    BLEUScore
+)
 import pytorch_lightning as pl
+from pytorch_lightning.callbacks import Callback
 import torch
+import logging
 
 from datasets import load_dataset
 from transformers import (
@@ -13,6 +18,10 @@ from transformers import (
     AdamW
 )
 
+LOG_EVERY_N_STEPS = 5
+logging.basicConfig(level='INFO')
+LOGGER = logging.getLogger("lightning-logger")
+
 class CommonGenModel(pl.LightningModule):
     
     def __init__(self, learning_rate, tokenizer, model, hparams):
@@ -20,6 +29,9 @@ class CommonGenModel(pl.LightningModule):
         self.tokenizer = tokenizer
         self.model = model
         self.learning_rate = learning_rate
+
+        self.predictions = []
+        self.targets = []
 
     # Do a forward pass through the model
     def forward(self, input_ids, **kwargs):
@@ -44,7 +56,40 @@ class CommonGenModel(pl.LightningModule):
         # Calculate the loss on the un-shifted tokens
         loss = ce_loss_fct(lm_logits.view(-1, lm_logits.shape[-1]), tgt_ids.view(-1))
 
-        return {'loss':loss}
+        # Generate sentences
+        if batch_idx % LOG_EVERY_N_STEPS == 0:
+            src_text = self.tokenizer.batch_decode(src_ids, skip_special_tokens=True)
+            ref_text = self.tokenizer.batch_decode(tgt_ids, skip_special_tokens=True)
+            generated_ids = self.model.generate(src_ids)
+            generated_text = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
+            
+            bleu_ref = [[ref] for ref in ref_text]
+            bleu_score = BLEUScore()(generated_text, bleu_ref)
+
+            return {
+                'loss': loss,
+                'bleu': bleu_score,
+                'examples': {
+                    'src': src_text,
+                    'ref': ref_text,
+                    'pred': generated_text
+                }
+            }
+
+        return {'loss': loss}
+
+    def training_step_end(self, training_step_outputs):
+        self.log('loss', training_step_outputs['loss'])
+        if 'bleu' in training_step_outputs:
+            self.log('bleu', training_step_outputs['bleu'])
+        if 'examples' in training_step_outputs:
+            srcs = training_step_outputs['examples']['src']
+            refs = training_step_outputs['examples']['ref']
+            preds = training_step_outputs['examples']['pred']
+            for src, ref, pred in zip(srcs, refs, preds):
+                LOGGER.info(f"SOURCE: {src}")
+                LOGGER.info(f"REFERENCE: {ref}")
+                LOGGER.info(f"PREDICTION: {pred}")
 
     def validation_step(self, batch, batch_idx):
 
@@ -60,11 +105,26 @@ class CommonGenModel(pl.LightningModule):
         ce_loss_fct = torch.nn.CrossEntropyLoss(ignore_index=self.tokenizer.pad_token_id)
         val_loss = ce_loss_fct(lm_logits.view(-1, lm_logits.shape[-1]), tgt_ids.view(-1))
 
+        # Generate text
+        generated_ids = self.model.generate(src_ids)
+        generated_text = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
+        ref_text = self.tokenizer.batch_decode(tgt_ids, skip_special_tokens=True)
+        self.predictions.extend([pred for pred in generated_text])
+        self.targets.extend([[ref] for ref in ref_text])
+
         return {'loss': val_loss}
 
     def validation_epoch_end(self, outputs):
-        val_loss = torch.stack([x["loss"] for x in outputs]).mean()
-        return self.log("loss", val_loss)
+        val_loss = torch.stack([x['loss'] for x in outputs]).mean()
+        val_bleu = BLEUScore()(self.predictions, self.targets)
+        self.log('val_loss', val_loss)
+        self.log('val_bleu', val_bleu)
+
+    def test_step(self):
+        pass
+
+    def predict_step(self):
+        pass
 
     def generate_text(self, text, eval_beams, early_stopping = True, max_len = 40):
         ''' Function to generate text '''
@@ -89,8 +149,8 @@ class CommonGenDataModule(pl.LightningDataModule):
         self.setup(None)
 
     def setup(self, stage):
-        self.train = self.dataset['train']
-        self.validation = self.dataset['validation']
+        self.train = torch.utils.data.Subset(self.dataset['train'], list(range(50)))
+        self.validation = torch.utils.data.Subset(self.dataset['validation'], list(range(10)))
         self.test = self.dataset['test']
 
     def train_dataloader(self):
@@ -115,6 +175,16 @@ class CommonGenDataModule(pl.LightningDataModule):
         }
 
 
+class LossCallback(Callback):
+    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, unused=0):
+        if batch_idx % LOG_EVERY_N_STEPS == 0:
+            print(f"-------------------\n" +\
+                f"Step {trainer.global_step}:\n" +\
+                f"Loss: {trainer.callback_metrics['loss']}\n" +\
+                f"BLEU: {trainer.callback_metrics['bleu']}\n" +\
+                "-------------------")
+
+
 def shift_tokens_right(input_ids, pad_token_id):
   """ Shift input ids one token to the right, and wrap the last non pad token (usually <eos>).
       This is taken directly from modeling_bart.py
@@ -126,24 +196,30 @@ def shift_tokens_right(input_ids, pad_token_id):
   return prev_output_tokens
 
 
-tokenizer = BartTokenizer.from_pretrained(
-    'facebook/bart-base'
-)
-model = BartForConditionalGeneration.from_pretrained(
-    'facebook/bart-base'
-)
-common_gen_data = CommonGenDataModule(3, tokenizer)
-common_gen_model = CommonGenModel(2e-5, tokenizer, model, None)
+def main():
+    tokenizer = BartTokenizer.from_pretrained(
+        'facebook/bart-base'
+    )
+    model = BartForConditionalGeneration.from_pretrained(
+        'facebook/bart-base'
+    )
+    common_gen_data = CommonGenDataModule(3, tokenizer)
+    common_gen_model = CommonGenModel(2e-5, tokenizer, model, None)
 
-checkpoint = pl.callbacks.ModelCheckpoint('./checkpoints/')
-trainer = pl.Trainer(
-    default_root_dir='.',
-    gpus=1,
-    max_epochs=1,
-    min_epochs=1,
-    auto_lr_find=False,
-    callbacks=[checkpoint]
-)
+    checkpoint = pl.callbacks.ModelCheckpoint('./checkpoints/')
+    trainer = pl.Trainer(
+        default_root_dir='.',
+        gpus=0,
+        max_epochs=2,
+        min_epochs=2,
+        auto_lr_find=False,
+        callbacks=[LossCallback(), checkpoint],
+        log_every_n_steps=LOG_EVERY_N_STEPS
+    )
 
-trainer.fit(common_gen_model, common_gen_data)
-trainer.validate(common_gen_model, common_gen_data)
+    trainer.fit(common_gen_model, common_gen_data)
+    trainer.validate(common_gen_model, common_gen_data)
+
+
+if __name__ == "__main__":
+    main()
