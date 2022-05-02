@@ -34,8 +34,7 @@ class CommonGenModel(pl.LightningModule):
         self.model = model
         self.learning_rate = learning_rate
 
-        self.predictions = []
-        self.targets = []
+        self.bleu_data = {}
 
     # Do a forward pass through the model
     def forward(self, input_ids, **kwargs):
@@ -110,19 +109,38 @@ class CommonGenModel(pl.LightningModule):
         val_loss = ce_loss_fct(lm_logits.view(-1, lm_logits.shape[-1]), tgt_ids.view(-1))
 
         # Generate text
+        input_text = self.tokenizer.batch_decode(src_ids, skip_special_tokens=True)
         generated_ids = self.model.generate(src_ids)
         generated_text = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
         ref_text = self.tokenizer.batch_decode(tgt_ids, skip_special_tokens=True)
-        self.predictions.extend([pred for pred in generated_text])
-        self.targets.extend([[ref] for ref in ref_text])
+        # Save for BLEU computation
+        for src, ref, pred in zip(input_text, ref_text, generated_text):
+            self.bleu_data[src] = self.bleu_data.get(src, {'preds': [], 'refs': []})
+            self.bleu_data[src]['preds'].append(pred)
+            self.bleu_data[src]['refs'].append(ref)
 
         return {'loss': val_loss}
 
     def validation_epoch_end(self, outputs):
+        # loss
         val_loss = torch.stack([x['loss'] for x in outputs]).mean()
-        val_bleu = BLEUScore()(self.predictions, self.targets)
+
+        # bleu
+        epoch_bleu_data = self._get_bleu_data()
+        preds = [data[0] for data in epoch_bleu_data]
+        targets = [data[1] for data in epoch_bleu_data]
+        val_bleu = BLEUScore()(preds, targets)
+
+        # log to lightning
         self.log('val_loss', val_loss)
         self.log('val_bleu', val_bleu)
+
+        # log to output
+        self.logger.info(f"Validation loss: {val_loss}")
+        self.logger.info(f"Validation BLEU: {val_bleu}")
+
+        # reset predictions
+        self.bleu_data = {}
 
     def test_step(self):
         pass
@@ -142,6 +160,14 @@ class CommonGenModel(pl.LightningModule):
             early_stopping = early_stopping
         )
         return [self.tokenizer.decode(w, skip_special_tokens=True, clean_up_tokenization_spaces=True) for w in generated_ids]
+
+    def _get_bleu_data(self):
+        data = []
+        for value in self.bleu_data.values():
+            refs = value['refs']
+            for pred in value['preds']:
+                data.append((pred, refs))
+        return data
 
 
 class CommonGenDataModule(pl.LightningDataModule):
