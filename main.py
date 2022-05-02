@@ -19,10 +19,14 @@ from transformers import (
 )
 
 LOG_EVERY_N_STEPS = 50
-logging.basicConfig(level='INFO')
-LOGGER = logging.getLogger("lightning-logger")
 
 class CommonGenModel(pl.LightningModule):
+    logging.basicConfig(
+        format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+        datefmt="%m/%d/%Y %H:%M:%S",
+        level=logging.INFO,
+    )
+    logger = logging.getLogger('lightning')
     
     def __init__(self, learning_rate, tokenizer, model, hparams):
         super().__init__()
@@ -30,8 +34,7 @@ class CommonGenModel(pl.LightningModule):
         self.model = model
         self.learning_rate = learning_rate
 
-        self.predictions = []
-        self.targets = []
+        self.bleu_data = {}
 
     # Do a forward pass through the model
     def forward(self, input_ids, **kwargs):
@@ -87,9 +90,9 @@ class CommonGenModel(pl.LightningModule):
             refs = training_step_outputs['examples']['ref']
             preds = training_step_outputs['examples']['pred']
             for src, ref, pred in zip(srcs, refs, preds):
-                LOGGER.info(f"SOURCE: {src}")
-                LOGGER.info(f"REFERENCE: {ref}")
-                LOGGER.info(f"PREDICTION: {pred}")
+                self.logger.info(f"SOURCE: {src}")
+                self.logger.info(f"REFERENCE: {ref}")
+                self.logger.info(f"PREDICTION: {pred}")
 
     def validation_step(self, batch, batch_idx):
 
@@ -106,19 +109,38 @@ class CommonGenModel(pl.LightningModule):
         val_loss = ce_loss_fct(lm_logits.view(-1, lm_logits.shape[-1]), tgt_ids.view(-1))
 
         # Generate text
+        input_text = self.tokenizer.batch_decode(src_ids, skip_special_tokens=True)
         generated_ids = self.model.generate(src_ids)
         generated_text = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
         ref_text = self.tokenizer.batch_decode(tgt_ids, skip_special_tokens=True)
-        self.predictions.extend([pred for pred in generated_text])
-        self.targets.extend([[ref] for ref in ref_text])
+        # Save for BLEU computation
+        for src, ref, pred in zip(input_text, ref_text, generated_text):
+            self.bleu_data[src] = self.bleu_data.get(src, {'preds': [], 'refs': []})
+            self.bleu_data[src]['preds'].append(pred)
+            self.bleu_data[src]['refs'].append(ref)
 
         return {'loss': val_loss}
 
     def validation_epoch_end(self, outputs):
+        # loss
         val_loss = torch.stack([x['loss'] for x in outputs]).mean()
-        val_bleu = BLEUScore()(self.predictions, self.targets)
+
+        # bleu
+        epoch_bleu_data = self._get_bleu_data()
+        preds = [data[0] for data in epoch_bleu_data]
+        targets = [data[1] for data in epoch_bleu_data]
+        val_bleu = BLEUScore()(preds, targets)
+
+        # log to lightning
         self.log('val_loss', val_loss)
         self.log('val_bleu', val_bleu)
+
+        # log to output
+        self.logger.info(f"Validation loss: {val_loss}")
+        self.logger.info(f"Validation BLEU: {val_bleu}")
+
+        # reset predictions
+        self.bleu_data = {}
 
     def test_step(self):
         pass
@@ -138,6 +160,14 @@ class CommonGenModel(pl.LightningModule):
             early_stopping = early_stopping
         )
         return [self.tokenizer.decode(w, skip_special_tokens=True, clean_up_tokenization_spaces=True) for w in generated_ids]
+
+    def _get_bleu_data(self):
+        data = []
+        for value in self.bleu_data.values():
+            refs = value['refs']
+            for pred in value['preds']:
+                data.append((pred, refs))
+        return data
 
 
 class CommonGenDataModule(pl.LightningDataModule):
@@ -176,13 +206,12 @@ class CommonGenDataModule(pl.LightningDataModule):
 
 
 class LossCallback(Callback):
+    logger = logging.getLogger('metrics')
+
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, unused=0):
         if batch_idx % LOG_EVERY_N_STEPS == 0:
-            print(f"-------------------\n" +\
-                f"Step {trainer.global_step}:\n" +\
-                f"Loss: {trainer.callback_metrics['loss']}\n" +\
-                f"BLEU: {trainer.callback_metrics['bleu']}\n" +\
-                "-------------------")
+            self.logger.info(f"STEP {trainer.global_step} Loss: {trainer.callback_metrics['loss']}")
+            self.logger.info(f"STEP {trainer.global_step} BLEU: {trainer.callback_metrics['bleu']}")
 
 
 def shift_tokens_right(input_ids, pad_token_id):
@@ -209,12 +238,13 @@ def main():
     checkpoint = pl.callbacks.ModelCheckpoint('./checkpoints/')
     trainer = pl.Trainer(
         default_root_dir='.',
-        gpus=0,
-        max_epochs=2,
-        min_epochs=2,
+        gpus=1,
+        max_epochs=10,
+        min_epochs=100,
         auto_lr_find=False,
         callbacks=[LossCallback(), checkpoint],
-        log_every_n_steps=LOG_EVERY_N_STEPS
+        log_every_n_steps=LOG_EVERY_N_STEPS,
+        enable_progress_bar=False
     )
 
     trainer.fit(common_gen_model, common_gen_data)
