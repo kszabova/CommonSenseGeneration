@@ -19,10 +19,14 @@ from transformers import (
 )
 
 LOG_EVERY_N_STEPS = 5
-logging.basicConfig(level='INFO')
-LOGGER = logging.getLogger("lightning-logger")
 
 class CommonGenModel(pl.LightningModule):
+    logging.basicConfig(
+        format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+        datefmt="%m/%d/%Y %H:%M:%S",
+        level=logging.INFO,
+    )
+    logger = logging.getLogger('lightning')
     
     def __init__(self, learning_rate, tokenizer, model, hparams):
         super().__init__()
@@ -87,9 +91,9 @@ class CommonGenModel(pl.LightningModule):
             refs = training_step_outputs['examples']['ref']
             preds = training_step_outputs['examples']['pred']
             for src, ref, pred in zip(srcs, refs, preds):
-                LOGGER.info(f"SOURCE: {src}")
-                LOGGER.info(f"REFERENCE: {ref}")
-                LOGGER.info(f"PREDICTION: {pred}")
+                self.logger.info(f"SOURCE: {src}")
+                self.logger.info(f"REFERENCE: {ref}")
+                self.logger.info(f"PREDICTION: {pred}")
 
     def validation_step(self, batch, batch_idx):
 
@@ -176,13 +180,12 @@ class CommonGenDataModule(pl.LightningDataModule):
 
 
 class LossCallback(Callback):
+    logger = logging.getLogger('metrics')
+
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, unused=0):
         if batch_idx % LOG_EVERY_N_STEPS == 0:
-            print(f"-------------------\n" +\
-                f"Step {trainer.global_step}:\n" +\
-                f"Loss: {trainer.callback_metrics['loss']}\n" +\
-                f"BLEU: {trainer.callback_metrics['bleu']}\n" +\
-                "-------------------")
+            self.logger.info(f"STEP {trainer.global_step} Loss: {trainer.callback_metrics['loss']}")
+            self.logger.info(f"STEP {trainer.global_step} BLEU: {trainer.callback_metrics['bleu']}")
 
 
 def shift_tokens_right(input_ids, pad_token_id):
@@ -214,7 +217,8 @@ def main():
         min_epochs=2,
         auto_lr_find=False,
         callbacks=[LossCallback(), checkpoint],
-        log_every_n_steps=LOG_EVERY_N_STEPS
+        log_every_n_steps=LOG_EVERY_N_STEPS,
+        enable_progress_bar=False
     )
 
     trainer.fit(common_gen_model, common_gen_data)
