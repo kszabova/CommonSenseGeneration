@@ -1,3 +1,4 @@
+from asyncio.log import logger
 from torch.utils.data import (
     Dataset,
     DataLoader
@@ -7,6 +8,7 @@ from torchmetrics import (
 )
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import Callback
+from pytorch_lightning.loggers import TensorBoardLogger
 import torch
 import logging
 
@@ -59,6 +61,8 @@ class CommonGenModel(pl.LightningModule):
         # Calculate the loss on the un-shifted tokens
         loss = ce_loss_fct(lm_logits.view(-1, lm_logits.shape[-1]), tgt_ids.view(-1))
 
+        tb_log = {'train_loss': loss}
+
         # Generate sentences
         if batch_idx % LOG_EVERY_N_STEPS == 0:
             src_text = self.tokenizer.batch_decode(src_ids, skip_special_tokens=True)
@@ -76,10 +80,11 @@ class CommonGenModel(pl.LightningModule):
                     'src': src_text,
                     'ref': ref_text,
                     'pred': generated_text
-                }
+                },
+                'log': tb_log
             }
 
-        return {'loss': loss}
+        return {'loss': loss, 'log': tb_log}
 
     def training_step_end(self, training_step_outputs):
         self.log('loss', training_step_outputs['loss'])
@@ -119,11 +124,11 @@ class CommonGenModel(pl.LightningModule):
             self.bleu_data[src]['preds'].append(pred)
             self.bleu_data[src]['refs'].append(ref)
 
-        return {'loss': val_loss}
+        return {'val_loss': val_loss}
 
     def validation_epoch_end(self, outputs):
         # loss
-        val_loss = torch.stack([x['loss'] for x in outputs]).mean()
+        val_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
 
         # bleu
         epoch_bleu_data = self._get_bleu_data()
@@ -214,6 +219,17 @@ class LossCallback(Callback):
             self.logger.info(f"STEP {trainer.global_step} BLEU: {trainer.callback_metrics['bleu']}")
 
 
+class TensorBoardCallback(Callback):
+    tb_logger = TensorBoardLogger(
+        'tb_logs',
+        name='model'
+    )
+
+    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, unused=0):
+        self.tb_logger.log_metrics(outputs['log'], batch_idx)
+        #print(outputs['log'])
+
+
 def shift_tokens_right(input_ids, pad_token_id):
   """ Shift input ids one token to the right, and wrap the last non pad token (usually <eos>).
       This is taken directly from modeling_bart.py
@@ -236,13 +252,14 @@ def main():
     common_gen_model = CommonGenModel(2e-5, tokenizer, model, None)
 
     checkpoint = pl.callbacks.ModelCheckpoint('./checkpoints/')
+    #tb_logger = TensorBoardLogger('tb_logs', name='model')
     trainer = pl.Trainer(
         default_root_dir='.',
         gpus=0,
         max_epochs=2,
         min_epochs=2,
         auto_lr_find=False,
-        callbacks=[LossCallback(), checkpoint],
+        callbacks=[LossCallback(), TensorBoardCallback(), checkpoint],
         log_every_n_steps=LOG_EVERY_N_STEPS,
         enable_progress_bar=False
     )
