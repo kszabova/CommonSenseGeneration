@@ -1,4 +1,6 @@
-from asyncio.log import logger
+import argparse
+from ast import parse
+import os
 from torch.utils.data import (
     Dataset,
     DataLoader
@@ -114,17 +116,24 @@ class CommonGenModel(pl.LightningModule):
         val_loss = ce_loss_fct(lm_logits.view(-1, lm_logits.shape[-1]), tgt_ids.view(-1))
 
         # Generate text
-        input_text = self.tokenizer.batch_decode(src_ids, skip_special_tokens=True)
+        src_text = self.tokenizer.batch_decode(src_ids, skip_special_tokens=True)
         generated_ids = self.model.generate(src_ids)
         generated_text = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
         ref_text = self.tokenizer.batch_decode(tgt_ids, skip_special_tokens=True)
         # Save for BLEU computation
-        for src, ref, pred in zip(input_text, ref_text, generated_text):
+        for src, ref, pred in zip(src_text, ref_text, generated_text):
             self.bleu_data[src] = self.bleu_data.get(src, {'preds': [], 'refs': []})
             self.bleu_data[src]['preds'].append(pred)
             self.bleu_data[src]['refs'].append(ref)
 
-        return {'val_loss': val_loss}
+        return {
+            'val_loss': val_loss,
+            'examples': {
+                'src': src_text,
+                'ref': ref_text,
+                'pred': generated_text
+            },
+        }
 
     def validation_epoch_end(self, outputs):
         # loss
@@ -134,7 +143,7 @@ class CommonGenModel(pl.LightningModule):
         epoch_bleu_data = self._get_bleu_data()
         preds = [data[0] for data in epoch_bleu_data]
         targets = [data[1] for data in epoch_bleu_data]
-        val_bleu = BLEUScore()(preds, targets)
+        val_bleu = BLEUScore(1)(preds, targets)
 
         # log to lightning
         self.log('val_loss', val_loss)
@@ -153,24 +162,24 @@ class CommonGenModel(pl.LightningModule):
     def predict_step(self):
         pass
 
-    def generate_text(self, text, eval_beams, early_stopping = True, max_len = 40):
-        ''' Function to generate text '''
-        generated_ids = self.model.generate(
-            text["input_ids"],
-            attention_mask=text["attention_mask"],
-            use_cache=True,
-            decoder_start_token_id = self.tokenizer.pad_token_id,
-            num_beams= eval_beams,
-            max_length = max_len,
-            early_stopping = early_stopping
-        )
-        return [self.tokenizer.decode(w, skip_special_tokens=True, clean_up_tokenization_spaces=True) for w in generated_ids]
+    # def generate_text(self, text, eval_beams, early_stopping = True, max_len = 40):
+    #     ''' Function to generate text '''
+    #     generated_ids = self.model.generate(
+    #         text["input_ids"],
+    #         attention_mask=text["attention_mask"],
+    #         use_cache=True,
+    #         decoder_start_token_id = self.tokenizer.pad_token_id,
+    #         num_beams= eval_beams,
+    #         max_length = max_len,
+    #         early_stopping = early_stopping
+    #     )
+    #     return [self.tokenizer.decode(w, skip_special_tokens=True, clean_up_tokenization_spaces=True) for w in generated_ids]
 
     def _get_bleu_data(self):
         data = []
         for value in self.bleu_data.values():
             refs = value['refs']
-            for pred in value['preds']:
+            for pred in set(value['preds']):
                 data.append((pred, refs))
         return data
 
@@ -230,6 +239,22 @@ class TensorBoardCallback(Callback):
         #print(outputs['log'])
 
 
+class SaveGeneratedSentencesCallback(Callback):
+    def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
+        if trainer.current_epoch >= 1: # replace with number of epochs
+            if batch_idx == 0:
+                try:
+                    os.remove("val_out.txt")
+                except OSError:
+                    pass
+            with open("val_out.txt", 'a') as file:
+                inputs = outputs['examples']['src']
+                references = outputs['examples']['ref']
+                predictions = outputs['examples']['pred']
+                for input, ref, pred in zip(inputs, references, predictions):
+                    file.write(f'INPUT: {input}\nREFERENCE: {ref}\nPREDICTION: {pred}\n\n')
+
+
 def shift_tokens_right(input_ids, pad_token_id):
   """ Shift input ids one token to the right, and wrap the last non pad token (usually <eos>).
       This is taken directly from modeling_bart.py
@@ -239,6 +264,19 @@ def shift_tokens_right(input_ids, pad_token_id):
   prev_output_tokens[:, 0] = input_ids.gather(1, index_of_eos).squeeze()
   prev_output_tokens[:, 1:] = input_ids[:, :-1]
   return prev_output_tokens
+
+
+def getArgParser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--min_epochs', type=int, default=2)
+    parser.add_argument('--max_epochs', type=int, default=2)
+    parser.add_argument('--model_name', type=str, default='baseline')
+    parser.add_argument('--val_output', type=str, default='val_output.txt', help='File path where validation output should be stored.')
+    parser.add_argument('--batch_size', type=int, default=3)
+    parser.add_argument('--lr', type=float, default=2e-5)
+    parser.add_argument('--log_interval', type=int, default=5, help="Interval of logging for Trainer.")
+
+    return parser
 
 
 def main():
@@ -252,6 +290,12 @@ def main():
     common_gen_model = CommonGenModel(2e-5, tokenizer, model, None)
 
     checkpoint = pl.callbacks.ModelCheckpoint('./checkpoints/')
+    callbacks = [
+        LossCallback(),
+        TensorBoardCallback(),
+        SaveGeneratedSentencesCallback(),
+        checkpoint
+    ]
     #tb_logger = TensorBoardLogger('tb_logs', name='model')
     trainer = pl.Trainer(
         default_root_dir='.',
@@ -259,7 +303,7 @@ def main():
         max_epochs=2,
         min_epochs=2,
         auto_lr_find=False,
-        callbacks=[LossCallback(), TensorBoardCallback(), checkpoint],
+        callbacks=callbacks,
         log_every_n_steps=LOG_EVERY_N_STEPS,
         enable_progress_bar=False
     )
