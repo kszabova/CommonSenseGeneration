@@ -140,7 +140,7 @@ class CommonGenModel(pl.LightningModule):
         epoch_bleu_data = self._get_bleu_data()
         preds = [data[0] for data in epoch_bleu_data]
         targets = [data[1] for data in epoch_bleu_data]
-        val_bleu = BLEUScore(1)(preds, targets)
+        val_bleu = BLEUScore()(preds, targets)
 
         # log to lightning
         self.log('val_loss', val_loss)
