@@ -1,1 +1,5 @@
 lightning_logs/
+tb_logs/
+checkpoints/
+val_output*
+test.py
