@@ -3,3 +3,4 @@ tb_logs/
 checkpoints/
 val_output*
 test.py
+__pycache__/
