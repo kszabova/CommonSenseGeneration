@@ -4,3 +4,5 @@ checkpoints/
 val_output*
 test.py
 __pycache__/
+snippet.py
+example_outputs/

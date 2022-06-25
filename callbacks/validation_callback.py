@@ -4,6 +4,8 @@ import json
 import os
 import evaluate
 
+import gem_metrics
+
 
 class ValidationCallback(Callback):
     def __init__(self, output_file, min_epochs) -> None:
@@ -47,9 +49,37 @@ class ValidationCallback(Callback):
             bleu = evaluate.load("bleu")
             bleu_results = bleu.compute(predictions=predictions, references=references)
 
+            unrolled_refs = []
+            unrolled_preds = []
+            for refs, pred in zip(references, predictions):
+                unrolled_refs.extend(refs)
+                unrolled_preds.extend([pred] * len(refs))
+
+            rouge = evaluate.load("rouge")
+            rouge_results = rouge.compute(
+                predictions=unrolled_preds, references=unrolled_refs
+            )
+
+            meteor = evaluate.load("meteor")
+            meteor_results = meteor.compute(
+                predictions=unrolled_preds, references=unrolled_refs
+            )
+
+            preds_gem = gem_metrics.texts.Predictions(unrolled_preds)
+            refs_gem = gem_metrics.texts.References(unrolled_refs)
+
+            cider_results = gem_metrics.compute(
+                preds_gem, refs_gem, metrics_list=["cider"]
+            )
+
             results = {}
             results["generated_sentences"] = self.generated_sentences
-            results["metrics"] = {"bleu": bleu_results}
+            results["metrics"] = {
+                "bleu": bleu_results,
+                "rouge": rouge_results,
+                "meteor": meteor_results,
+                "cider": cider_results,
+            }
 
             with open(self.output_file, "w") as output_f:
                 output_f.write(json.dumps(results, indent=4))
