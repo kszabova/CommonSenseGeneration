@@ -3,6 +3,7 @@ import pytorch_lightning as pl
 import logging
 
 from transformers import BartTokenizer, BartForConditionalGeneration
+from common_gen_enhanced_data_module import CommonGenEnhancedDataModule
 
 from common_gen_model import CommonGenModel
 from common_gen_data_module import CommonGenDataModule
@@ -48,7 +49,7 @@ def main():
 
     tokenizer = BartTokenizer.from_pretrained("facebook/bart-base")
     model = BartForConditionalGeneration.from_pretrained("facebook/bart-base")
-    common_gen_data = CommonGenDataModule(args.batch_size, tokenizer)
+    common_gen_data = CommonGenEnhancedDataModule(args.batch_size, tokenizer, "basic")
     common_gen_model = CommonGenModel(
         args.lr, tokenizer, model, None, args.log_interval
     )
