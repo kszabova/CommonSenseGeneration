@@ -65,6 +65,7 @@ class ValidationCallback(Callback):
                 predictions=unrolled_preds, references=unrolled_refs
             )
 
+<<<<<<< HEAD
             cider_results = None
             try:
                 preds_gem = gem_metrics.texts.Predictions(unrolled_preds)
@@ -75,6 +76,14 @@ class ValidationCallback(Callback):
                 )
             except:
                 pass
+=======
+            preds_gem = gem_metrics.texts.Predictions(unrolled_preds)
+            refs_gem = gem_metrics.texts.References(unrolled_refs)
+
+            cider_results = gem_metrics.compute(
+                preds_gem, refs_gem, metrics_list=["cider"]
+            )
+>>>>>>> local
 
             results = {}
             results["generated_sentences"] = self.generated_sentences
