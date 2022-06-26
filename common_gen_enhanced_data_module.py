@@ -50,7 +50,6 @@ class CommonGenEnhancedDataModule(pl.LightningDataModule):
                 sentences.append(sentence)
             inputs_disjoint = concepts + sentences
             inputs.append(separator.join(inputs_disjoint) + separator)
-        print(inputs)
 
         targets = [data["target"] for data in batch]
         tokenized_inputs = self.tokenizer(inputs, padding=True, return_tensors="pt")
