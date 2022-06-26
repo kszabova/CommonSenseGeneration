@@ -14,7 +14,7 @@ def query_word(word):
 
         sentence = edge["surfaceText"]
         if sentence:
-            sentence = sentence.replace("[", "").replace("[", "").replace("*", "")
+            sentence = sentence.replace("[", "").replace("]", "").replace("*", "")
             sentences.append(sentence)
 
     return sentences
