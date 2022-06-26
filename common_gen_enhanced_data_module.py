@@ -66,7 +66,7 @@ class CommonGenEnhancedDataModule(pl.LightningDataModule):
 
     def _setup_enhancement(self, enhancement_type):
         if enhancement_type == "basic":
-            with open("conceptnet-sentences.txt", "r") as file:
+            with open("./data/conceptnet-sentences.txt", "r") as file:
                 return json.load(file)
         if enhancement_type == "mock":
             return {
