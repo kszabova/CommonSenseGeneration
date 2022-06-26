@@ -17,10 +17,8 @@ class CommonGenEnhancedDataModule(pl.LightningDataModule):
         self.setup(None)
 
     def setup(self, stage):
-        self.train = torch.utils.data.Subset(self.dataset["train"], list(range(5)))
-        self.validation = torch.utils.data.Subset(
-            self.dataset["validation"], list(range(10))
-        )
+        self.train = self.dataset["train"]
+        self.validation = self.dataset["validation"]
         self.test = self.dataset["test"]
 
     def train_dataloader(self):
