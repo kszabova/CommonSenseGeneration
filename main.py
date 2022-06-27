@@ -1,4 +1,5 @@
 import argparse
+from random import choices
 import pytorch_lightning as pl
 import logging
 
@@ -28,6 +29,18 @@ def get_arg_parser():
         "--log_interval", type=int, default=5, help="Interval of logging for Trainer."
     )
     parser.add_argument("--gpus", type=int, default=0)
+    parser.add_argument(
+        "--enhancement",
+        choices=[None, "basic"],
+        default=None,
+        help="Manner of enhancing input into BART",
+    )
+    parser.add_argument(
+        "--enhancement_file",
+        type=str,
+        default="./data/conceptnet-sentences.txt",
+        help="Where to find file with enhancement data",
+    )
 
     return parser
 
@@ -49,7 +62,13 @@ def main():
 
     tokenizer = BartTokenizer.from_pretrained("facebook/bart-base")
     model = BartForConditionalGeneration.from_pretrained("facebook/bart-base")
-    common_gen_data = CommonGenEnhancedDataModule(args.batch_size, tokenizer, "basic")
+    common_gen_data = None
+    if not args.enhancement:
+        common_gen_data = CommonGenDataModule(args.batch_size, tokenizer)
+    else:
+        common_gen_data = CommonGenEnhancedDataModule(
+            args.batch_size, tokenizer, args.enhancement, args.enhancement_file
+        )
     common_gen_model = CommonGenModel(
         args.lr, tokenizer, model, None, args.log_interval
     )
