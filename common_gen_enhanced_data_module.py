@@ -44,8 +44,9 @@ class CommonGenEnhancedDataModule(pl.LightningDataModule):
             concepts = " ".join(data["concepts"])
             sentences = []
             for concept in data["concepts"]:
-                sentence = random.choice(self.enhancement.get(concept, [""]))
-                sentences.append(sentence)
+                concept_sentences = self.enhancement.get(concept, [])
+                if concept_sentences:
+                    sentences.append(random.choice(concept_sentences))
             concepts += (
                 " "
                 + self.tokenizer.cls_token
