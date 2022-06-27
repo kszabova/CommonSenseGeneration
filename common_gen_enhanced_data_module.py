@@ -50,7 +50,7 @@ class CommonGenEnhancedDataModule(pl.LightningDataModule):
                 " "
                 + self.tokenizer.cls_token
                 + " "
-                + random.choice(sentences)
+                + (random.choice(sentences) if sentences else "")
                 + " "
                 + self.tokenizer.sep_token
             )
