@@ -8,11 +8,11 @@ from datasets import load_dataset
 
 
 class CommonGenEnhancedDataModule(pl.LightningDataModule):
-    def __init__(self, batch_size, tokenizer, enhancement_type):
+    def __init__(self, batch_size, tokenizer, enhancement_type, enhancement_file):
         super().__init__()
         self.tokenizer = tokenizer
         self.batch_size = batch_size
-        self.enhancement = self._setup_enhancement(enhancement_type)
+        self.enhancement = self._setup_enhancement(enhancement_type, enhancement_file)
         self.dataset = load_dataset("common_gen")
         self.setup(None)
 
@@ -45,14 +45,20 @@ class CommonGenEnhancedDataModule(pl.LightningDataModule):
         inputs = []
         separator = " " + self.tokenizer.cls_token + " "
         for data in batch:
-            concepts = [" ".join(data["concepts"])]
+            concepts = " ".join(data["concepts"])
             sentences = []
             for concept in data["concepts"]:
                 sentence = random.choice(self.enhancement.get(concept, [""]))
                 sentences.append(sentence)
-            inputs_disjoint = concepts + sentences
-            inputs.append(separator.join(inputs_disjoint) + separator)
-        print(inputs)
+            concepts += (
+                " "
+                + self.tokenizer.cls_token
+                + " "
+                + random.choice(sentences)
+                + " "
+                + self.tokenizer.sep_token
+            )
+            inputs.append(concepts)
 
         targets = [data["target"] for data in batch]
         tokenized_inputs = self.tokenizer(inputs, padding=True, return_tensors="pt")
@@ -64,9 +70,9 @@ class CommonGenEnhancedDataModule(pl.LightningDataModule):
             "labels": tokenized_targets["input_ids"],
         }
 
-    def _setup_enhancement(self, enhancement_type):
+    def _setup_enhancement(self, enhancement_type, enhancement_file):
         if enhancement_type == "basic":
-            with open("./data/conceptnet-sentences.txt", "r") as file:
+            with open(enhancement_file, "r") as file:
                 return json.load(file)
         if enhancement_type == "mock":
             return {
