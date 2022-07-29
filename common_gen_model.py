@@ -50,7 +50,7 @@ class CommonGenModel(pl.LightningModule):
 
         # Generate sentences
         if batch_idx % self.log_interval == 0:
-            src_text = self.tokenizer.batch_decode(src_ids, skip_special_tokens=True)
+            src_text = self.tokenizer.batch_decode(src_ids, skip_special_tokens=False)
             ref_text = self.tokenizer.batch_decode(tgt_ids, skip_special_tokens=True)
             generated_ids = self.model.generate(src_ids)
             generated_text = self.tokenizer.batch_decode(
@@ -103,7 +103,7 @@ class CommonGenModel(pl.LightningModule):
         val_loss = loss_fx(logits.view(-1, logits.shape[-1]), tgt_ids.view(-1))
 
         # Generate text
-        src_text = self.tokenizer.batch_decode(src_ids, skip_special_tokens=True)
+        src_text = self.tokenizer.batch_decode(src_ids, skip_special_tokens=False)
         generated_ids = self.model.generate(src_ids)
         generated_text = self.tokenizer.batch_decode(
             generated_ids, skip_special_tokens=True

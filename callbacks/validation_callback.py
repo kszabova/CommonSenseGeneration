@@ -25,11 +25,12 @@ class ValidationCallback(Callback):
             references = outputs["examples"]["ref"]
             predictions = outputs["examples"]["pred"]
             for input, ref, pred in zip(inputs, references, predictions):
-                self.generated_sentences[input] = self.generated_sentences.get(
-                    input, {"references": [], "predictions": []}
+                input_kw = input.split(pl_module.tokenizer.cls_token)[1]
+                self.generated_sentences[input_kw] = self.generated_sentences.get(
+                    input_kw, {"references": [], "predictions": []}
                 )
-                self.generated_sentences[input]["references"].append(ref)
-                self.generated_sentences[input]["predictions"].append(pred)
+                self.generated_sentences[input_kw]["references"].append(ref)
+                self.generated_sentences[input_kw]["predictions"].append(pred)
 
     def on_validation_epoch_end(self, trainer, pl_module):
         if trainer.current_epoch >= self.min_epoch_idx:
