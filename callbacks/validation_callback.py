@@ -25,7 +25,9 @@ class ValidationCallback(Callback):
             references = outputs["examples"]["ref"]
             predictions = outputs["examples"]["pred"]
             for input, ref, pred in zip(inputs, references, predictions):
-                input_kw = input.split(pl_module.tokenizer.cls_token)[1]
+                input_kw = self._sanitize_input_kw(
+                    input, pl_module.tokenizer.cls_token, pl_module.tokenizer.eos_token
+                )
                 self.generated_sentences[input_kw] = self.generated_sentences.get(
                     input_kw, {"references": [], "predictions": []}
                 )
@@ -84,3 +86,10 @@ class ValidationCallback(Callback):
 
             with open(self.output_file, "w") as output_f:
                 output_f.write(json.dumps(results, indent=4))
+
+    def _sanitize_input_kw(self, input_string, cls_sep, eos_sep):
+        input_kw = input_string.split(cls_sep)[1]
+        input_kw = input_kw.split(eos_sep)[0]
+        input_kw = input_kw.strip()
+        print('"' + input_kw + '"')
+        return input_kw
