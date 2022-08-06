@@ -91,5 +91,4 @@ class ValidationCallback(Callback):
         input_kw = input_string.split(cls_sep)[1]
         input_kw = input_kw.split(eos_sep)[0]
         input_kw = input_kw.strip()
-        print('"' + input_kw + '"')
         return input_kw
