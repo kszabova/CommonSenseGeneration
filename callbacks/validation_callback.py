@@ -26,7 +26,7 @@ class ValidationCallback(Callback):
             predictions = outputs["examples"]["pred"]
             for input, ref, pred in zip(inputs, references, predictions):
                 input_kw = self._sanitize_input_kw(
-                    input, pl_module.tokenizer.cls_token, pl_module.tokenizer.eos_token
+                    input, pl_module.tokenizer.cls_token, pl_module.tokenizer.sep_token
                 )
                 self.generated_sentences[input_kw] = self.generated_sentences.get(
                     input_kw, {"references": [], "predictions": []}
