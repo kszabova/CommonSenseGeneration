@@ -92,9 +92,40 @@ class CommonGenEnhancedDataModule(pl.LightningDataModule):
                 + self.tokenizer.sep_token
             )
             return input
+        elif self.enhancement_type == "pair":
+            input = " ".join(concepts)
+            sentences = []
+            for concept in concepts:
+                concept_sentences = self.enhancement.get(concept, [])
+                if concept_sentences:
+                    sentences.extend(concept_sentences)
+            selected_sentence = self._select_sentence_with_multiple_words(
+                concepts, sentences, 2
+            )
+            input += (
+                " "
+                + self.tokenizer.cls_token
+                + " "
+                + (selected_sentence if selected_sentence else "")
+                + " "
+                + self.tokenizer.sep_token
+            )
+            return input
+
+    def _select_sentence_with_multiple_words(self, keywords, sentences, threshold):
+        kw_set = set(keywords)
+        valid_sentences = []
+        for sentence in sentences:
+            sentence_set = set(sentence.split())
+            isection = kw_set.intersection(sentence_set)
+            if len(isection) >= threshold:
+                valid_sentences.append(sentence)
+        if valid_sentences:
+            return random.choice(valid_sentences)
+        return None
 
     def _setup_enhancement(self, enhancement_type, enhancement_file):
-        if enhancement_type in ["basic", "all_keywords"]:
+        if enhancement_type in ["basic", "all_keywords", "pair"]:
             with open(enhancement_file, "r") as file:
                 return json.load(file)
         if enhancement_type == "mock":
