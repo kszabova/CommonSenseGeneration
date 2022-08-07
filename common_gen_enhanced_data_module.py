@@ -44,23 +44,9 @@ class CommonGenEnhancedDataModule(pl.LightningDataModule):
 
     def _collate_batch(self, batch):
         inputs = []
-        separator = " " + self.tokenizer.cls_token + " "
         for data in batch:
-            # concepts = " ".join(data["concepts"])
-            # sentences = []
-            # for concept in data["concepts"]:
-            #     sentence = random.choice(self.enhancement.get(concept, [""]))
-            #     sentences.append(sentence)
-            # concepts += (
-            #     " "
-            #     + self.tokenizer.cls_token
-            #     + " "
-            #     + (random.choice(sentences) if sentences else "")
-            #     + " "
-            #     + self.tokenizer.sep_token
-            # )
-            concepts = self._perform_enhancement_on_input(data["concepts"])
-            inputs.append(concepts)
+            input = self._perform_enhancement_on_input(data["concepts"])
+            inputs.append(input)
 
         targets = [data["target"] for data in batch]
         tokenized_inputs = self.tokenizer(inputs, padding=True, return_tensors="pt")
@@ -77,8 +63,9 @@ class CommonGenEnhancedDataModule(pl.LightningDataModule):
             input = " ".join(concepts)
             sentences = []
             for concept in concepts:
-                sentence = random.choice(self.enhancement.get(concept, [""]))
-                sentences.append(sentence)
+                concept_sentences = self.enhancement.get(concept, [])
+                if concept_sentences:
+                    sentences.append(random.choice(concept_sentences))
             input += (
                 " "
                 + self.tokenizer.cls_token
@@ -92,8 +79,9 @@ class CommonGenEnhancedDataModule(pl.LightningDataModule):
             input = " ".join(concepts)
             sentences = []
             for concept in concepts:
-                sentence = random.choice(self.enhancement.get(concept, [""]))
-                sentences.append(sentence)
+                concept_sentences = self.enhancement.get(concept, [])
+                if concept_sentences:
+                    sentences.append(random.choice(concept_sentences))
             input += (
                 "".join(
                     [
