@@ -31,7 +31,7 @@ def get_arg_parser():
     parser.add_argument("--gpus", type=int, default=0)
     parser.add_argument(
         "--enhancement",
-        choices=[None, "basic", "all_keywords"],
+        choices=[None, "basic", "all_keywords", "pair"],
         default=None,
         help="Manner of enhancing input into BART",
     )
