@@ -9,7 +9,12 @@ from common_gen_enhanced_data_module import CommonGenEnhancedDataModule
 from common_gen_model import CommonGenModel
 from common_gen_data_module import CommonGenDataModule
 
-from callbacks import LossCallback, TensorBoardCallback, ValidationCallback
+from callbacks import (
+    CoverageCallback,
+    LossCallback,
+    TensorBoardCallback,
+    ValidationCallback,
+)
 
 
 def get_arg_parser():
@@ -75,6 +80,7 @@ def main():
 
     checkpoint = pl.callbacks.ModelCheckpoint(f"./checkpoints/{args.model_name}/")
     callbacks = [
+        CoverageCallback(args.enhancement == "pair"),
         LossCallback(args.log_interval),
         TensorBoardCallback(args.model_name),
         ValidationCallback(args.val_output, args.min_epochs),

@@ -44,8 +44,12 @@ class CommonGenEnhancedDataModule(pl.LightningDataModule):
 
     def _collate_batch(self, batch):
         inputs = []
+        total_keywords = 0
+        total_pairs_found = 0
         for data in batch:
-            input = self._perform_enhancement_on_input(data["concepts"])
+            input, pairs_found = self._perform_enhancement_on_input(data["concepts"])
+            total_keywords += 1
+            total_pairs_found += pairs_found
             inputs.append(input)
 
         targets = [data["target"] for data in batch]
@@ -56,6 +60,8 @@ class CommonGenEnhancedDataModule(pl.LightningDataModule):
             "input_ids": tokenized_inputs["input_ids"],
             "attention_mask": tokenized_inputs["attention_mask"],
             "labels": tokenized_targets["input_ids"],
+            "keywords": total_keywords,
+            "pairs_found": total_pairs_found,
         }
 
     def _perform_enhancement_on_input(self, concepts):
@@ -74,7 +80,7 @@ class CommonGenEnhancedDataModule(pl.LightningDataModule):
                 + " "
                 + self.tokenizer.sep_token
             )
-            return input
+            return input, 0
         elif self.enhancement_type == "all_keywords":
             input = " ".join(concepts)
             sentences = []
@@ -91,7 +97,7 @@ class CommonGenEnhancedDataModule(pl.LightningDataModule):
                 )
                 + self.tokenizer.sep_token
             )
-            return input
+            return input, 0
         elif self.enhancement_type == "pair":
             input = " ".join(concepts)
             sentences = []
@@ -110,7 +116,7 @@ class CommonGenEnhancedDataModule(pl.LightningDataModule):
                 + " "
                 + self.tokenizer.sep_token
             )
-            return input
+            return input, 1 if selected_sentence else 0
 
     def _select_sentence_with_multiple_words(self, keywords, sentences, threshold):
         kw_set = set(keywords)

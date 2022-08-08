@@ -16,6 +16,9 @@ class CommonGenModel(pl.LightningModule):
 
         self.log_interval = log_interval
 
+        self.total_keywords = 0
+        self.total_pairs_found = 0
+
         self.bleu_data = {}
 
     # Do a forward pass through the model
@@ -47,6 +50,9 @@ class CommonGenModel(pl.LightningModule):
         loss = loss_fx(logits.view(-1, logits.shape[-1]), tgt_ids.view(-1))
 
         tb_log = {"train_loss": loss.detach()}
+
+        self.total_keywords += batch["keywords"]
+        self.total_pairs_found += batch["pairs_found"]
 
         # Generate sentences
         if batch_idx % self.log_interval == 0:
