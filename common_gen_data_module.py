@@ -4,17 +4,23 @@ import torch
 
 from datasets import load_dataset
 
+from csv_dataset import CSVDataset
+
 
 class CommonGenDataModule(pl.LightningDataModule):
-    def __init__(self, batch_size, tokenizer):
+    def __init__(self, batch_size, tokenizer, csv=None):
         super().__init__()
         self.tokenizer = tokenizer
         self.batch_size = batch_size
         self.dataset = load_dataset("common_gen")
+        self.csv = csv
         self.setup(None)
 
     def setup(self, stage):
-        self.train = self.dataset["train"]
+        if self.csv:
+            self.train = CSVDataset(self.csv)
+        else:
+            self.train = self.dataset["train"]
         self.validation = self.dataset["validation"]
         self.test = self.dataset["test"]
 
