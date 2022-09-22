@@ -8,7 +8,9 @@ from datasets import load_dataset
 
 
 class CommonGenEnhancedDataModule(pl.LightningDataModule):
-    def __init__(self, batch_size, tokenizer, enhancement_type, enhancement_file):
+    def __init__(
+        self, batch_size, tokenizer, enhancement_type, enhancement_file, csv_file
+    ):
         super().__init__()
         self.tokenizer = tokenizer
         self.batch_size = batch_size
