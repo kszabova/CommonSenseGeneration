@@ -51,8 +51,8 @@ class CommonGenModel(pl.LightningModule):
 
         tb_log = {"train_loss": loss.detach()}
 
-        self.total_keywords += batch["keywords"]
-        self.total_pairs_found += batch["pairs_found"]
+        self.total_keywords += batch.get("keywords", 0)
+        self.total_pairs_found += batch.get("pairs_found", 0)
 
         # Generate sentences
         if batch_idx % self.log_interval == 0:
