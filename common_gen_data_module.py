@@ -20,8 +20,8 @@ class CommonGenDataModule(pl.LightningDataModule):
         if self.csv:
             self.train = CSVDataset(self.csv)
         else:
-            self.train = torch.utils.data.Subset(self.dataset["train"], range(50))
-        self.validation = torch.utils.data.Subset(self.dataset["validation"], range(15))
+            self.train = self.dataset["train"]
+        self.validation = self.dataset["validation"]
         self.test = self.dataset["test"]
 
     def train_dataloader(self):
