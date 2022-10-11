@@ -43,7 +43,7 @@ def get_arg_parser():
     parser.add_argument(
         "--enhancement_file",
         type=str,
-        default="./data/conceptnet-sentences.txt",
+        default=None,
         help="Where to find file with enhancement data",
     )
     parser.add_argument(
@@ -79,17 +79,13 @@ def main():
 
     tokenizer = BartTokenizer.from_pretrained("facebook/bart-base")
     model = BartForConditionalGeneration.from_pretrained("facebook/bart-base")
-    common_gen_data = None
-    if not args.enhancement:
-        common_gen_data = CommonGenDataModule(args.batch_size, tokenizer, args.csv_file)
-    else:
-        common_gen_data = CommonGenEnhancedDataModule(
-            args.batch_size,
-            tokenizer,
-            args.enhancement,
-            args.enhancement_file,
-            args.csv_file,
-        )
+    common_gen_data = CommonGenDataModule(
+        args.batch_size,
+        tokenizer,
+        enhancement_type=args.enhancement,
+        enhancement_file=args.enhancement_file,
+        csv=args.csv_file,
+    )
 
     kwargs = {
         "learning_rate": args.lr,
