@@ -52,6 +52,12 @@ def get_arg_parser():
         default=None,
         help="File with training data for pretraining",
     )
+    parser.add_argument(
+        "--model_ckpt",
+        type=str,
+        default=None,
+        help="Checkpoint from which to load model",
+    )
 
     return parser
 
@@ -84,11 +90,24 @@ def main():
             args.enhancement_file,
             args.csv_file,
         )
-    common_gen_model = CommonGenModel(
-        args.lr, tokenizer, model, None, args.log_interval
-    )
 
-    checkpoint = pl.callbacks.ModelCheckpoint(f"./checkpoints/{args.model_name}/")
+    kwargs = {
+        "learning_rate": args.lr,
+        "tokenizer": tokenizer,
+        "model": model,
+        "hparams": None,
+        "log_interval": args.log_interval,
+    }
+    if args.model_ckpt:
+        common_gen_model = CommonGenModel.load_from_checkpoint(
+            args.model_ckpt, **kwargs
+        )
+    else:
+        common_gen_model = CommonGenModel(**kwargs)
+
+    checkpoint = pl.callbacks.ModelCheckpoint(
+        f"./checkpoints/{args.model_name}/", save_weights_only=True
+    )
     callbacks = [
         CoverageCallback(args.enhancement == "pair"),
         LossCallback(args.log_interval),
