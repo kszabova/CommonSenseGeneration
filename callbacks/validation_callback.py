@@ -58,11 +58,10 @@ class ValidationCallback(Callback):
                 unrolled_refs.extend(refs)
                 unrolled_preds.extend([pred] * len(refs))
 
-            rouge_results = None
-            # rouge = evaluate.load("rouge")
-            # rouge_results = rouge.compute(
-            #     predictions=unrolled_preds, references=unrolled_refs
-            # )
+            rouge = evaluate.load("rouge")
+            rouge_results = rouge.compute(
+                predictions=unrolled_preds, references=unrolled_refs
+            )
 
             meteor = evaluate.load("meteor")
             meteor_results = meteor.compute(
