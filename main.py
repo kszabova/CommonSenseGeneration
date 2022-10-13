@@ -4,7 +4,6 @@ import pytorch_lightning as pl
 import logging
 
 from transformers import BartTokenizer, BartForConditionalGeneration
-from common_gen_enhanced_data_module import CommonGenEnhancedDataModule
 
 from common_gen_model import CommonGenModel
 from common_gen_data_module import CommonGenDataModule
@@ -15,6 +14,7 @@ from callbacks import (
     TensorBoardCallback,
     ValidationCallback,
 )
+from pytorch_lightning.callbacks import ModelCheckpoint
 
 
 def get_arg_parser():
@@ -101,15 +101,12 @@ def main():
     else:
         common_gen_model = CommonGenModel(**kwargs)
 
-    checkpoint = pl.callbacks.ModelCheckpoint(
-        f"./checkpoints/{args.model_name}/", save_weights_only=True
-    )
     callbacks = [
         CoverageCallback(args.enhancement == "pair"),
         LossCallback(args.log_interval),
         TensorBoardCallback(args.model_name),
         ValidationCallback(args.val_output, args.min_epochs),
-        checkpoint,
+        ModelCheckpoint(f"./checkpoints/{args.model_name}/", save_weights_only=True),
     ]
 
     trainer = pl.Trainer(
