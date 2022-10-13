@@ -79,10 +79,13 @@ class CommonGenDataModule(pl.LightningDataModule):
         if not self.enhancement_type:
             return " ".join(concepts), 0
         elif self.enhancement_type == "basic":
+            # select a random sentence for a random concept
             input = " ".join(concepts)
             sentences = []
             for concept in concepts:
-                concept_sentences = self.enhancement.get(concept, [])
+                concept_sentences = self.enhancement.get(concept, {}).get(
+                    "sentences", []
+                )
                 if concept_sentences:
                     sentences.append(random.choice(concept_sentences))
             input += (
@@ -95,10 +98,13 @@ class CommonGenDataModule(pl.LightningDataModule):
             )
             return input, 0
         elif self.enhancement_type == "all_keywords":
+            # select a random sentence for each of the concepts
             input = " ".join(concepts)
             sentences = []
             for concept in concepts:
-                concept_sentences = self.enhancement.get(concept, [])
+                concept_sentences = self.enhancement.get(concept, {}).get(
+                    "sentences", []
+                )
                 if concept_sentences:
                     sentences.append(random.choice(concept_sentences))
             input += (
@@ -112,24 +118,27 @@ class CommonGenDataModule(pl.LightningDataModule):
             )
             return input, 0
         elif self.enhancement_type == "pair":
+            # select a sentence that contains at least two of the concepts
             input = " ".join(concepts)
             sentences = []
-            for concept in concepts:
-                concept_sentences = self.enhancement.get(concept, [])
-                if concept_sentences:
-                    sentences.extend(concept_sentences)
-            selected_sentence = self._select_sentence_with_multiple_words(
-                concepts, sentences, 2
-            )
+            for i in range(len(concepts)):
+                for j in range(i + 1, len(concepts)):
+                    intersection = (
+                        self.enhancement.get(concepts[i], {})
+                        .get(concepts[j], {})
+                        .get("sentences", [])
+                    )
+                    sentences.extend(intersection)
+            sentence = random.choice(sentences) if sentences else ""
             input += (
                 " "
                 + self.tokenizer.cls_token
                 + " "
-                + (selected_sentence if selected_sentence else "")
+                + sentence
                 + " "
                 + self.tokenizer.sep_token
             )
-            return input, 1 if selected_sentence else 0
+            return input, 1 if sentence else 0
 
     def _select_sentence_with_multiple_words(self, keywords, sentences, threshold):
         kw_set = set(keywords)
