@@ -77,7 +77,7 @@ class CommonGenDataModule(pl.LightningDataModule):
 
     def _perform_enhancement_on_input(self, concepts):
         if not self.enhancement_type:
-            return " ".join(concepts), 0
+            return " ".join([str(concept) for concept in concepts]), 0
         elif self.enhancement_type == "basic":
             # select a random sentence for a random concept
             input = " ".join(concepts)
