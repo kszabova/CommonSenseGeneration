@@ -1,0 +1,25 @@
+common_gen_config:
+  logging:
+    log_interval: 50
+    log_level: INFO
+  pretraining:
+    ckpt_path:
+  enhancement:
+    type:
+    file_path:
+  training:
+    data:
+      csv_file_path: ~/common-sense-gen/CommonSenseGeneration/data/conceptnet_relations.csv
+    hparams:
+      learning_rate: 2.0e-5
+      batch_size: 3
+      min_epochs: 1
+      max_epochs: 1
+  infrastructure:
+    gpus: 1
+  output:
+    model_name: pretrained
+    val_output_name: val_output_pretrained.txt
+    ckpt_path:
+  iterations: 1
+  rnd_seed: 42

@@ -1,0 +1,25 @@
+common_gen_config:
+  logging:
+    log_interval: 50
+    log_level: INFO
+  pretraining:
+    ckpt_path: ~/common-sense-gen/checkpoints/pretrained00/epoch=0-step=43681.ckpt
+  enhancement:
+    type:
+    file_path:
+  training:
+    data:
+      csv_file_path:
+    hparams:
+      learning_rate: 2.0e-5
+      batch_size: 3
+      min_epochs: 1
+      max_epochs: 1
+  infrastructure:
+    gpus: 1
+  output:
+    model_name: frompretrained
+    val_output_name: val_output_frompretrained.txt
+    ckpt_path:
+  iterations: 5
+  rnd_seed: 42
