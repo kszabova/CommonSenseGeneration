@@ -60,13 +60,13 @@ def setup_model(config, iteration):
         common_gen_model = CommonGenModel(**kwargs)
 
     model_name = config["output"]["model_name"] + f"{iteration:02d}"
+    validation_output_file = f"val_output_{model_name}.txt"
     callbacks = [
         CoverageCallback(config["enhancement"]["type"] == "pair"),
         LossCallback(config["logging"]["log_interval"]),
         TensorBoardCallback(model_name),
         ValidationCallback(
-            config["output"]["val_output_name"],
-            config["training"]["hparams"]["min_epochs"],
+            validation_output_file, config["training"]["hparams"]["min_epochs"],
         ),
         ModelCheckpoint(f"./checkpoints/{model_name}/", save_weights_only=True),
     ]

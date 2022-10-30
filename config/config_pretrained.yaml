@@ -19,7 +19,6 @@ common_gen_config:
     gpus: 1
   output:
     model_name: pretrained
-    val_output_name: val_output_pretrained.txt
     ckpt_path:
   iterations: 1
   rnd_seed: 42

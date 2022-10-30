@@ -19,7 +19,6 @@ common_gen_config:
     gpus: 0
   output:
     model_name: baseline
-    val_output_name: val_output.txt
     ckpt_path: ./checkpoints/
   iterations: 1
   rnd_seed: 42

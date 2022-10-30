@@ -19,7 +19,6 @@ common_gen_config:
     gpus: 1
   output:
     model_name: enhanced_allkw
-    val_output_name: val_output_enhanced_allkw.txt
     ckpt_path:
   iterations: 5
   rnd_seed: 42
