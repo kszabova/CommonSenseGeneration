@@ -1,5 +1,7 @@
 import argparse
-from random import choices
+import yaml
+import random
+import torch
 import pytorch_lightning as pl
 import logging
 
@@ -19,55 +21,73 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 
 def get_arg_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--min_epochs", type=int, default=2)
-    parser.add_argument("--max_epochs", type=int, default=2)
-    parser.add_argument("--model_name", type=str, default="baseline")
-    parser.add_argument(
-        "--val_output",
-        type=str,
-        default="val_output.txt",
-        help="File path where validation output should be stored.",
-    )
-    parser.add_argument("--batch_size", type=int, default=3)
-    parser.add_argument("--lr", type=float, default=2e-5)
-    parser.add_argument(
-        "--log_interval", type=int, default=5, help="Interval of logging for Trainer."
-    )
-    parser.add_argument("--gpus", type=int, default=0)
-    parser.add_argument(
-        "--enhancement",
-        choices=[None, "basic", "all_keywords", "pair"],
-        default=None,
-        help="Manner of enhancing input into BART",
-    )
-    parser.add_argument(
-        "--enhancement_file",
-        type=str,
-        default=None,
-        help="Where to find file with enhancement data",
-    )
-    parser.add_argument(
-        "--csv_file",
-        type=str,
-        default=None,
-        help="File with training data for pretraining",
-    )
-    parser.add_argument(
-        "--model_ckpt",
-        type=str,
-        default=None,
-        help="Checkpoint from which to load model",
-    )
+    parser.add_argument("--config", type=str, help="Path to config file")
 
     return parser
 
 
-def setup_logging():
+def setup_logging(level):
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
         datefmt="%m/%d/%Y %H:%M:%S",
-        level=logging.INFO,
+        level=level,
     )
+
+
+def setup_model(config, iteration):
+    tokenizer = BartTokenizer.from_pretrained("facebook/bart-base")
+    model = BartForConditionalGeneration.from_pretrained("facebook/bart-base")
+    common_gen_data = CommonGenDataModule(
+        config["training"]["hparams"]["batch_size"],
+        tokenizer,
+        enhancement_type=config["enhancement"]["type"],
+        enhancement_file=config["enhancement"]["file_path"],
+        csv=config["training"]["data"]["csv_file_path"],
+    )
+
+    kwargs = {
+        "learning_rate": config["training"]["hparams"]["learning_rate"],
+        "tokenizer": tokenizer,
+        "model": model,
+        "hparams": None,
+        "log_interval": config["logging"]["log_interval"],
+    }
+    if config["pretraining"]["ckpt_path"]:
+        common_gen_model = CommonGenModel.load_from_checkpoint(
+            config["pretraining"]["ckpt_path"], **kwargs
+        )
+    else:
+        common_gen_model = CommonGenModel(**kwargs)
+
+    model_name = config["output"]["model_name"] + f"{iteration:02d}"
+    callbacks = [
+        CoverageCallback(config["enhancement"]["type"] == "pair"),
+        LossCallback(config["logging"]["log_interval"]),
+        TensorBoardCallback(model_name),
+        ValidationCallback(
+            config["output"]["val_output_name"],
+            config["training"]["hparams"]["min_epochs"],
+        ),
+        ModelCheckpoint(f"./checkpoints/{model_name}/", save_weights_only=True),
+    ]
+
+    trainer = pl.Trainer(
+        default_root_dir=".",
+        gpus=config["infrastructure"]["gpus"],
+        min_epochs=config["training"]["hparams"]["min_epochs"],
+        max_epochs=config["training"]["hparams"]["max_epochs"],
+        auto_lr_find=False,
+        callbacks=callbacks,
+        log_every_n_steps=config["logging"]["log_interval"],
+        enable_progress_bar=False,
+    )
+
+    return trainer, common_gen_model, common_gen_data
+
+
+def model_loop(trainer, model, data):
+    trainer.fit(model, data)
+    trainer.validate(model, data)
 
 
 def main():
@@ -75,53 +95,22 @@ def main():
     parser = get_arg_parser()
     args = parser.parse_args()
 
-    setup_logging()
+    with open(args.config, "r") as f:
+        config = yaml.safe_load(f)["common_gen_config"]
 
-    tokenizer = BartTokenizer.from_pretrained("facebook/bart-base")
-    model = BartForConditionalGeneration.from_pretrained("facebook/bart-base")
-    common_gen_data = CommonGenDataModule(
-        args.batch_size,
-        tokenizer,
-        enhancement_type=args.enhancement,
-        enhancement_file=args.enhancement_file,
-        csv=args.csv_file,
-    )
+    # fix random seeds
+    seed = config["rnd_seed"]
+    torch.manual_seed(seed)
+    random.seed(seed)
 
-    kwargs = {
-        "learning_rate": args.lr,
-        "tokenizer": tokenizer,
-        "model": model,
-        "hparams": None,
-        "log_interval": args.log_interval,
-    }
-    if args.model_ckpt:
-        common_gen_model = CommonGenModel.load_from_checkpoint(
-            args.model_ckpt, **kwargs
-        )
-    else:
-        common_gen_model = CommonGenModel(**kwargs)
+    setup_logging(config["logging"]["log_level"])
+    logger = logging.getLogger("main")
 
-    callbacks = [
-        CoverageCallback(args.enhancement == "pair"),
-        LossCallback(args.log_interval),
-        TensorBoardCallback(args.model_name),
-        ValidationCallback(args.val_output, args.min_epochs),
-        ModelCheckpoint(f"./checkpoints/{args.model_name}/", save_weights_only=True),
-    ]
-
-    trainer = pl.Trainer(
-        default_root_dir=".",
-        gpus=args.gpus,
-        min_epochs=args.min_epochs,
-        max_epochs=args.max_epochs,
-        auto_lr_find=False,
-        callbacks=callbacks,
-        log_every_n_steps=args.log_interval,
-        enable_progress_bar=False,
-    )
-
-    trainer.fit(common_gen_model, common_gen_data)
-    trainer.validate(common_gen_model, common_gen_data)
+    iterations = config["iterations"]
+    for i in range(iterations):
+        logger.info(f"Training model {config['output']['model_name']}{i:02d}")
+        trainer, model, data = setup_model(config, i)
+        model_loop(trainer, model, data)
 
 
 if __name__ == "__main__":
