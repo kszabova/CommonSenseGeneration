@@ -31,8 +31,8 @@ class CommonGenDataModule(pl.LightningDataModule):
         if self.csv:
             self.train = CSVDataset(self.csv)
         else:
-            self.train = self.dataset["train"]
-        self.validation = self.dataset["validation"]
+            self.train = torch.utils.data.Subset(self.dataset["train"], range(30))
+        self.validation = torch.utils.data.Subset(self.dataset["validation"], range(10))
         self.test = self.dataset["test"]
 
     def train_dataloader(self):
@@ -139,6 +139,22 @@ class CommonGenDataModule(pl.LightningDataModule):
                 + self.tokenizer.sep_token
             )
             return input, 1 if sentence else 0
+        elif self.enhancement_type == "subgraph":
+            input = " ".join(concepts)
+            sentences = []
+            concept_subgraph = self.enhancement.get(";".join(concepts), {})
+            for edge in concept_subgraph.values():
+                sentences.append(random.choice(edge))
+            input += (
+                "".join(
+                    [
+                        f" {self.tokenizer.cls_token} {sentence} "
+                        for sentence in sentences
+                    ]
+                )
+                + self.tokenizer.sep_token
+            )
+            return input, 0
 
     def _select_sentence_with_multiple_words(self, keywords, sentences, threshold):
         kw_set = set(keywords)
@@ -153,7 +169,7 @@ class CommonGenDataModule(pl.LightningDataModule):
         return None
 
     def _setup_enhancement(self, enhancement_type, enhancement_file):
-        if enhancement_type in ["basic", "all_keywords", "pair"]:
+        if enhancement_type in ["basic", "all_keywords", "pair", "subgraph"]:
             with open(enhancement_file, "r") as file:
                 return json.load(file)
         return {}

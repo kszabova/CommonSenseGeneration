@@ -6,3 +6,6 @@ test.py
 __pycache__/
 snippet.py
 example_outputs/
+data/conceptnet-assertions-5.6.0.csv
+data/conceptnet-english.csv
+data/conceptnet.graph
