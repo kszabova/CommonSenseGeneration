@@ -85,7 +85,6 @@ def save_cpnet():
                 continue
             weight = 1 + float(math.exp(1 - weight))
             graph.add_edge(subj, obj, rel=rel, weight=weight)
-            graph.add_edge(obj, subj, rel=rel + len(relation2id), weight=weight)
 
     nx.write_gpickle(graph, conceptnet_graph_path)
 
