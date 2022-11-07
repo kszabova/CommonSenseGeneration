@@ -32,11 +32,11 @@ concept2id = None
 relation2id = None
 id2relation = None
 id2concept = None
-concepts = None
+concept_set = None
 
 
 def load_resources():
-    global concept2id, relation2id, id2relation, id2concept, concepts
+    global concept2id, relation2id, id2relation, id2concept, concept_set
     concept2id = {}
     id2concept = {}
     with open(concept_path, "r", encoding="utf8") as f:
@@ -53,13 +53,14 @@ def load_resources():
             relation2id[w.strip()] = len(relation2id)
     print("relation2id done")
 
-    concepts = set()
+    concept_set = set()
 
     commongen = load_dataset("common_gen")
     splits = [commongen["train"], commongen["validation"], commongen["test"]]
     for split in splits:
         for example in split:
-            concepts.add(";".join(example["concepts"]))
+            concepts = [concept.replace(" ", "_") for concept in example["concepts"]]
+            concept_set.add(" ".join(concepts))
     print("concepts done")
 
 
@@ -86,8 +87,8 @@ if __name__ == "__main__":
 
     subgraphs = {}
     G = nx.read_gpickle(cpnet_graph_path)
-    for concept_key in tqdm(concepts, desc="processing concepts"):
-        concept_tuple = concept_key.split(";")
+    for concept_key in tqdm(concept_set, desc="processing concepts"):
+        concept_tuple = concept_key.split()
         subgraphs.setdefault(concept_key, {})
         for i, c1 in enumerate(concept_tuple[:-1]):
             for c2 in concept_tuple[i + 1 :]:
@@ -101,11 +102,11 @@ if __name__ == "__main__":
                 if nx.has_path(G, c1_id, c2_id):
                     shortest_path = nx.shortest_path(G, c1_id, c2_id)
                     sentences = get_sentences_from_path(shortest_path, G)
-                    subgraphs[concept_key][pair_key].extend(sentences)
+                    subgraphs[concept_key][pair_key].append(sentences)
                 if nx.has_path(G, c2_id, c1_id):
                     shortest_path = nx.shortest_path(G, c2_id, c1_id)
                     sentences = get_sentences_from_path(shortest_path, G)
-                    subgraphs[concept_key][pair_key].extend(sentences)
+                    subgraphs[concept_key][pair_key].append(sentences)
 
     with open("../data/conceptnet_subgraphs.json", "w") as f:
         f.write(json.dumps(subgraphs, indent=4))
