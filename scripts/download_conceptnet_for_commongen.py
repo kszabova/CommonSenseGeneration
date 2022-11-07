@@ -54,7 +54,7 @@ if __name__ == "__main__":
         for i, concept in enumerate(concepts):
             if args.log and i % 100 == 0:
                 print(f"Processed {i}/{len(concepts)} concepts")
-            relations = conceptnet.query(concept)
+            relations = conceptnet.query_api(concept)
             for relation in relations:
                 write_csv_line(relation, args.type, writer)
 

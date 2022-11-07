@@ -4,9 +4,11 @@ import json
 from tqdm import tqdm
 from datasets import load_dataset
 
-concept_path = "../data/concept.txt"
-relation_path = "../data/relation.txt"
-cpnet_graph_path = "../data/conceptnet.graph"
+from utils.conceptnet import Conceptnet
+
+concept_path = "./data/concept.txt"
+relation_path = "./data/relation.txt"
+cpnet_graph_path = "./data/conceptnet.graph"
 
 PATTERNS = {
     "antonym": "{c1} is the opposite of {c2}",
@@ -82,11 +84,19 @@ def get_sentences_from_path(path, G):
     return sentences
 
 
+def query_shortest_path(conceptnet, c1, c2):
+    query = {"mode": "shortest_path", "start": c1, "end": c2}
+    return conceptnet.query_local(**query)
+
+
 if __name__ == "__main__":
     load_resources()
+    conceptnet = Conceptnet()
+
+    concept_set = ("dog eat bone", "wine cave church")
 
     subgraphs = {}
-    G = nx.read_gpickle(cpnet_graph_path)
+    G = nx.read_gpickle(cpnet_graph_path)  # TODO remove
     for concept_key in tqdm(concept_set, desc="processing concepts"):
         concept_tuple = concept_key.split()
         subgraphs.setdefault(concept_key, {})
@@ -94,20 +104,30 @@ if __name__ == "__main__":
             for c2 in concept_tuple[i + 1 :]:
                 pair_key = f"{c1} {c2}"
                 subgraphs[concept_key].setdefault(pair_key, [])
-                c1_id, c2_id = concept2id.get(c1), concept2id.get(c2)
-                if not c1_id or not c2_id:
-                    continue
-                if not c1_id in G or not c2_id in G:
-                    continue
-                if nx.has_path(G, c1_id, c2_id):
-                    shortest_path = nx.shortest_path(G, c1_id, c2_id)
-                    sentences = get_sentences_from_path(shortest_path, G)
-                    subgraphs[concept_key][pair_key].append(sentences)
-                if nx.has_path(G, c2_id, c1_id):
-                    shortest_path = nx.shortest_path(G, c2_id, c1_id)
-                    sentences = get_sentences_from_path(shortest_path, G)
-                    subgraphs[concept_key][pair_key].append(sentences)
+                c1_to_c2, c2_to_c1 = query_shortest_path(conceptnet, c1, c2)
+                sentences_c1_to_c2 = (
+                    get_sentences_from_path(c1_to_c2, G) if c1_to_c2 else []
+                )
+                sentences_c2_to_c1 = (
+                    get_sentences_from_path(c2_to_c1, G) if c2_to_c1 else []
+                )
+                subgraphs[concept_key][pair_key].extend(
+                    [sentences_c1_to_c2, sentences_c2_to_c1]
+                )
+                # c1_id, c2_id = concept2id.get(c1), concept2id.get(c2)
+                # if not c1_id or not c2_id:
+                #     continue
+                # if not c1_id in G or not c2_id in G:
+                #     continue
+                # if nx.has_path(G, c1_id, c2_id):
+                #     shortest_path = nx.shortest_path(G, c1_id, c2_id)
+                #     sentences = get_sentences_from_path(shortest_path, G)
+                #     subgraphs[concept_key][pair_key].append(sentences)
+                # if nx.has_path(G, c2_id, c1_id):
+                #     shortest_path = nx.shortest_path(G, c2_id, c1_id)
+                #     sentences = get_sentences_from_path(shortest_path, G)
+                #     subgraphs[concept_key][pair_key].append(sentences)
 
-    with open("../data/conceptnet_subgraphs.json", "w") as f:
+    with open("./data/conceptnet_subgraphs.json", "w") as f:
         f.write(json.dumps(subgraphs, indent=4))
 

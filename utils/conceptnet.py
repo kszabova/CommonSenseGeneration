@@ -1,8 +1,13 @@
 import time
 import requests
 
+import networkx as nx
+
+from typing import NamedTuple
+
 BASE_URL = "http://api.conceptnet.io/"
 QUERY_URL = "/c/en/{word}?limit=1000"
+DATA_DIR = "./data/"
 ALLOWED_RELATIONS = set(
     [
         "/r/IsA",
@@ -31,6 +36,12 @@ ALLOWED_RELATIONS = set(
 
 
 class Conceptnet:
+    class Resources(NamedTuple):
+        concept2id: dict
+        id2concept: dict
+        relation2id: dict
+        id2relation: dict
+
     def __init__(
         self,
         base_url=BASE_URL,
@@ -41,7 +52,10 @@ class Conceptnet:
         self.query_url = query_url
         self.allowed_relations = allowed_relations
 
-    def query(self, word):
+        self.graph = None
+        self.resources = None
+
+    def query_api(self, word):
         relations = []
         query_url = self.query_url.format(word=word)
         while query_url:
@@ -70,3 +84,60 @@ class Conceptnet:
 
             query_url = response.get("view", {}).get("nextPage", None)
         return relations
+
+    def query_local(self, **kwargs):
+        # load resources and graph
+        if not self.resources:
+            self._load_resources()
+
+        assert self.resources.concept2id is not None
+
+        graph_path = DATA_DIR + "conceptnet.graph"
+        if not self.graph:
+            self.graph = nx.read_gpickle(graph_path)
+
+        if kwargs["mode"] == "shortest_path":
+            start = kwargs["start"]
+            end = kwargs["end"]
+            start_id, end_id = (
+                self.resources.concept2id.get(start),
+                self.resources.concept2id.get(end),
+            )
+            if not start_id or not end_id:
+                return None, None
+            if not start_id in self.graph or not end_id in self.graph:
+                return None, None
+            if nx.has_path(self.graph, start_id, end_id):
+                shortest_path_s2e = nx.shortest_path(self.graph, start_id, end_id)
+            if nx.has_path(self.graph, end_id, start_id):
+                shortest_path_e2s = nx.shortest_path(self.graph, end_id, start_id)
+            return shortest_path_s2e, shortest_path_e2s
+        if kwargs["mode"] == "edge":
+            pass
+        else:
+            raise RuntimeError("Unknown mode for local Conceptnet query")
+
+    def _load_resources(self):
+        concept_path = DATA_DIR + "concept.txt"
+        relation_path = DATA_DIR + "relation.txt"
+
+        concept2id = {}
+        id2concept = {}
+        with open(concept_path, "r", encoding="utf8") as f:
+            for w in f.readlines():
+                concept2id[w.strip()] = len(concept2id)
+                id2concept[len(id2concept)] = w.strip()
+        print("Finished loading 'concept' resources")
+
+        id2relation = {}
+        relation2id = {}
+        with open(relation_path, "r", encoding="utf8") as f:
+            for w in f.readlines():
+                id2relation[len(id2relation)] = w.strip()
+                relation2id[w.strip()] = len(relation2id)
+        print("Finished loading 'relation' resources")
+
+        self.resources = self.Resources(
+            concept2id, id2concept, relation2id, id2relation
+        )
+
