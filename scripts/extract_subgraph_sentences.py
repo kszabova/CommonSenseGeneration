@@ -46,11 +46,6 @@ def load_concept_set():
     print("Finished loading concept set")
 
 
-def query_resource(conceptnet, resource, item):
-    query = {"mode": "convert", "resource": resource, "item": item}
-    return conceptnet.query_local(**query)
-
-
 def query_edge(conceptnet, *edge):
     query = {"mode": "edge", "start": edge[0], "end": edge[1]}
     return conceptnet.query_local(**query)
@@ -62,9 +57,9 @@ def query_shortest_path(conceptnet, c1, c2):
 
 
 def convert_relation_to_sentence(c1_id, c2_id, relation_id, conceptnet):
-    relation = query_resource(conceptnet, "id2relation", relation_id)
-    c1 = query_resource(conceptnet, "id2concept", c1_id)
-    c2 = query_resource(conceptnet, "id2concept", c2_id)
+    relation = conceptnet.query_resource("id2relation", relation_id)
+    c1 = conceptnet.query_resource("id2concept", c1_id)
+    c2 = conceptnet.query_resource("id2concept", c2_id)
     pattern = PATTERNS[relation]
     return pattern.format(c1=c1, c2=c2)
 

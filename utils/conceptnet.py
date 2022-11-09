@@ -90,8 +90,6 @@ class Conceptnet:
         if not self.resources:
             self._load_resources()
 
-        assert self.resources.concept2id is not None
-
         graph_path = DATA_DIR + "conceptnet.graph"
         if not self.graph:
             self.graph = nx.read_gpickle(graph_path)
@@ -100,10 +98,41 @@ class Conceptnet:
             return self._local_shortest_path(kwargs["start"], kwargs["end"])
         if kwargs["mode"] == "edge":
             return self._local_edge(kwargs["start"], kwargs["end"])
-        if kwargs["mode"] == "convert":
-            return self._local_convert(kwargs["resource"], kwargs["item"])
         else:
             raise RuntimeError("Unknown mode for local Conceptnet query")
+
+    def query_resource(self, resource, item):
+        if not self.resources:
+            self._load_resources()
+
+        resource_name = {
+            "concept2id": self.resources.concept2id,
+            "id2concept": self.resources.id2concept,
+            "relation2id": self.resources.relation2id,
+            "id2relation": self.resources.id2relation,
+        }
+        resource = resource_name[resource]
+        return resource.get(item)
+
+    def create_local(self, **kwargs):
+        # load resources
+        if not self.resources:
+            self._load_resources()
+        # create graph if it doesn't exist
+        if not self.graph:
+            self.graph = nx.MultiDiGraph()
+
+        if kwargs["mode"] == "add_edge":
+            self.graph.add_edge(
+                kwargs["start"],
+                kwargs["end"],
+                rel=kwargs["rel"],
+                weight=kwargs["weight"],
+            )
+        elif kwargs["mode"] == "save":
+            nx.write_gpickle(self.graph, kwargs["filepath"])
+        else:
+            raise RuntimeError("Unknown mode for local Conceptnet creation")
 
     def _load_resources(self):
         concept_path = DATA_DIR + "concept.txt"
@@ -147,14 +176,4 @@ class Conceptnet:
 
     def _local_edge(self, start, end):
         return self.graph.get_edge_data(start, end).values()
-
-    def _local_convert(self, resource, item):
-        resource_name = {
-            "concept2id": self.resources.concept2id,
-            "id2concept": self.resources.id2concept,
-            "relation2id": self.resources.relation2id,
-            "id2relation": self.resources.id2relation,
-        }
-        resource = resource_name[resource]
-        return resource.get(item)
 
