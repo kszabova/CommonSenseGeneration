@@ -97,23 +97,11 @@ class Conceptnet:
             self.graph = nx.read_gpickle(graph_path)
 
         if kwargs["mode"] == "shortest_path":
-            start = kwargs["start"]
-            end = kwargs["end"]
-            start_id, end_id = (
-                self.resources.concept2id.get(start),
-                self.resources.concept2id.get(end),
-            )
-            if not start_id or not end_id:
-                return None, None
-            if not start_id in self.graph or not end_id in self.graph:
-                return None, None
-            if nx.has_path(self.graph, start_id, end_id):
-                shortest_path_s2e = nx.shortest_path(self.graph, start_id, end_id)
-            if nx.has_path(self.graph, end_id, start_id):
-                shortest_path_e2s = nx.shortest_path(self.graph, end_id, start_id)
-            return shortest_path_s2e, shortest_path_e2s
+            return self._local_shortest_path(kwargs["start"], kwargs["end"])
         if kwargs["mode"] == "edge":
-            pass
+            return self._local_edge(kwargs["start"], kwargs["end"])
+        if kwargs["mode"] == "convert":
+            return self._local_convert(kwargs["resource"], kwargs["item"])
         else:
             raise RuntimeError("Unknown mode for local Conceptnet query")
 
@@ -140,4 +128,33 @@ class Conceptnet:
         self.resources = self.Resources(
             concept2id, id2concept, relation2id, id2relation
         )
+
+    def _local_shortest_path(self, start, end):
+        start_id, end_id = (
+            self.resources.concept2id.get(start),
+            self.resources.concept2id.get(end),
+        )
+        if not start_id or not end_id:
+            return None, None
+        if not start_id in self.graph or not end_id in self.graph:
+            return None, None
+        end_to_start, start_to_end = None, None
+        if nx.has_path(self.graph, start_id, end_id):
+            end_to_start = nx.shortest_path(self.graph, start_id, end_id)
+        if nx.has_path(self.graph, end_id, start_id):
+            start_to_end = nx.shortest_path(self.graph, end_id, start_id)
+        return end_to_start, start_to_end
+
+    def _local_edge(self, start, end):
+        return self.graph.get_edge_data(start, end).values()
+
+    def _local_convert(self, resource, item):
+        resource_name = {
+            "concept2id": self.resources.concept2id,
+            "id2concept": self.resources.id2concept,
+            "relation2id": self.resources.relation2id,
+            "id2relation": self.resources.id2relation,
+        }
+        resource = resource_name[resource]
+        return resource.get(item)
 
