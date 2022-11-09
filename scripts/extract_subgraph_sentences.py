@@ -1,12 +1,13 @@
-import networkx as nx
 import json
 
 from tqdm import tqdm
 from datasets import load_dataset
 
-concept_path = "../data/concept.txt"
-relation_path = "../data/relation.txt"
-cpnet_graph_path = "../data/conceptnet.graph"
+from utils.conceptnet import Conceptnet
+
+concept_path = "./data/concept.txt"
+relation_path = "./data/relation.txt"
+cpnet_graph_path = "./data/conceptnet.graph"
 
 PATTERNS = {
     "antonym": "{c1} is the opposite of {c2}",
@@ -28,85 +29,78 @@ PATTERNS = {
     "usedfor": "{c1} is used for {c2}",
 }
 
-concept2id = None
-relation2id = None
-id2relation = None
-id2concept = None
-concepts = None
+concept_set = None
 
 
-def load_resources():
-    global concept2id, relation2id, id2relation, id2concept, concepts
-    concept2id = {}
-    id2concept = {}
-    with open(concept_path, "r", encoding="utf8") as f:
-        for w in f.readlines():
-            concept2id[w.strip()] = len(concept2id)
-            id2concept[len(id2concept)] = w.strip()
+def load_concept_set():
+    global concept_set
 
-    print("concept2id done")
-    id2relation = {}
-    relation2id = {}
-    with open(relation_path, "r", encoding="utf8") as f:
-        for w in f.readlines():
-            id2relation[len(id2relation)] = w.strip()
-            relation2id[w.strip()] = len(relation2id)
-    print("relation2id done")
-
-    concepts = set()
+    concept_set = set()
 
     commongen = load_dataset("common_gen")
     splits = [commongen["train"], commongen["validation"], commongen["test"]]
     for split in splits:
         for example in split:
-            concepts.add(";".join(example["concepts"]))
-    print("concepts done")
+            concepts = [concept.replace(" ", "_") for concept in example["concepts"]]
+            concept_set.add(" ".join(concepts))
+    print("Finished loading concept set")
 
 
-def convert_relation_to_sentence(c1_id, c2_id, relation_id):
-    relation = id2relation[relation_id]
-    c1, c2 = id2concept[c1_id], id2concept[c2_id]
+def query_edge(conceptnet, *edge):
+    query = {"mode": "edge", "start": edge[0], "end": edge[1]}
+    return conceptnet.query_local(**query)
+
+
+def query_shortest_path(conceptnet, c1, c2):
+    query = {"mode": "shortest_path", "start": c1, "end": c2}
+    return conceptnet.query_local(**query)
+
+
+def convert_relation_to_sentence(c1_id, c2_id, relation_id, conceptnet):
+    relation = conceptnet.query_resource("id2relation", relation_id)
+    c1 = conceptnet.query_resource("id2concept", c1_id)
+    c2 = conceptnet.query_resource("id2concept", c2_id)
     pattern = PATTERNS[relation]
     return pattern.format(c1=c1, c2=c2)
 
 
-def get_sentences_from_path(path, G):
+def get_sentences_from_path(path, conceptnet):
     sentences = []
     for edge in zip(path[:-1], path[1:]):
-        relations = G.get_edge_data(*edge).values()
-        for relation_data in relations:
-            relation = relation_data["rel"]
-            sentence = convert_relation_to_sentence(*edge, relation)
-            sentences.append(sentence)
+        relations = query_edge(conceptnet, *edge)
+        max_relation = max(relations, key=lambda dict: dict["weight"])["rel"]
+        sentence = convert_relation_to_sentence(*edge, max_relation, conceptnet)
+        sentences.append(sentence)
     return sentences
 
 
-if __name__ == "__main__":
-    load_resources()
+def main():
+    load_concept_set()
+    conceptnet = Conceptnet()
 
     subgraphs = {}
-    G = nx.read_gpickle(cpnet_graph_path)
-    for concept_key in tqdm(concepts, desc="processing concepts"):
-        concept_tuple = concept_key.split(";")
+    for concept_key in tqdm(concept_set, desc="processing concepts"):
+        concept_tuple = concept_key.split()
         subgraphs.setdefault(concept_key, {})
         for i, c1 in enumerate(concept_tuple[:-1]):
             for c2 in concept_tuple[i + 1 :]:
                 pair_key = f"{c1} {c2}"
                 subgraphs[concept_key].setdefault(pair_key, [])
-                c1_id, c2_id = concept2id.get(c1), concept2id.get(c2)
-                if not c1_id or not c2_id:
-                    continue
-                if not c1_id in G or not c2_id in G:
-                    continue
-                if nx.has_path(G, c1_id, c2_id):
-                    shortest_path = nx.shortest_path(G, c1_id, c2_id)
-                    sentences = get_sentences_from_path(shortest_path, G)
-                    subgraphs[concept_key][pair_key].extend(sentences)
-                if nx.has_path(G, c2_id, c1_id):
-                    shortest_path = nx.shortest_path(G, c2_id, c1_id)
-                    sentences = get_sentences_from_path(shortest_path, G)
-                    subgraphs[concept_key][pair_key].extend(sentences)
+                c1_to_c2, c2_to_c1 = query_shortest_path(conceptnet, c1, c2)
+                sentences_c1_to_c2 = (
+                    get_sentences_from_path(c1_to_c2, conceptnet) if c1_to_c2 else []
+                )
+                sentences_c2_to_c1 = (
+                    get_sentences_from_path(c2_to_c1, conceptnet) if c2_to_c1 else []
+                )
+                subgraphs[concept_key][pair_key].extend(
+                    [sentences_c1_to_c2, sentences_c2_to_c1]
+                )
 
-    with open("../data/conceptnet_subgraphs.json", "w") as f:
+    with open("./data/conceptnet_subgraphs.json", "w") as f:
         f.write(json.dumps(subgraphs, indent=4))
+
+
+if __name__ == "__main__":
+    main()
 

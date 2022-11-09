@@ -142,9 +142,10 @@ class CommonGenDataModule(pl.LightningDataModule):
         elif self.enhancement_type == "subgraph":
             input = " ".join(concepts)
             sentences = []
-            concept_subgraph = self.enhancement.get(";".join(concepts), {})
+            concept_subgraph = self.enhancement.get(" ".join(concepts), {})
             for edge in concept_subgraph.values():
-                sentences.append(random.choice(edge))
+                path = random.choice(edge)
+                sentences.append(" ".join(path))
             input += (
                 "".join(
                     [
