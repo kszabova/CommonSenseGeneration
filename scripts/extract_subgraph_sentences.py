@@ -32,6 +32,11 @@ concept_set = None
 def get_args():
     parser = ArgumentParser()
     parser.add_argument(
+        "--type",
+        choices=["complete", "spantree"],
+        help="Save the complete subgraph of the concepts or just the spanning tree.",
+    )
+    parser.add_argument(
         "--graph_filename", type=str, help="Location of the stored conceptnet graph."
     )
     parser.add_argument("--tgt_path", type=str, help="Where the output will be stored.")
@@ -52,7 +57,7 @@ def load_concept_set():
     print("Finished loading concept set")
 
 
-def query_edge(conceptnet, *edge):
+def query_edge(conceptnet, edge):
     query = {"mode": "edge", "start": edge[0], "end": edge[1]}
     return conceptnet.query_local(**query)
 
@@ -62,20 +67,44 @@ def query_shortest_path(conceptnet, c1, c2):
     return conceptnet.query_local(**query)
 
 
-def convert_relation_to_sentence(c1_id, c2_id, relation_id, conceptnet):
+def query_spanning_tree(conceptnet, vertices):
+    query = {"mode": "spantree", "vertices": vertices}
+    return conceptnet.query_local(**query)
+
+
+def convert_relation_to_sentence(c1_id, c2_id, relation_id, conceptnet, reversed):
     relation = conceptnet.query_resource("id2relation", relation_id)
     c1 = conceptnet.query_resource("id2concept", c1_id)
     c2 = conceptnet.query_resource("id2concept", c2_id)
+    # swap the concepts if needed
+    if reversed:
+        c1, c2 = c2, c1
     pattern = PATTERNS[relation]
     return pattern.format(c1=c1, c2=c2)
+
+
+def get_sentence_from_edge(edge, conceptnet, reversible=False):
+    reversed = False
+    try:
+        relations = query_edge(conceptnet, edge)
+    except AttributeError:
+        if reversible:
+            try:
+                relations = query_edge(conceptnet, (edge[1], edge[0]))
+                reversed = True
+            except:
+                return None
+        else:
+            return None
+    max_relation = max(relations, key=lambda dict: dict["weight"])["rel"]
+    sentence = convert_relation_to_sentence(*edge, max_relation, conceptnet, reversed)
+    return sentence
 
 
 def get_sentences_from_path(path, conceptnet):
     sentences = []
     for edge in zip(path[:-1], path[1:]):
-        relations = query_edge(conceptnet, *edge)
-        max_relation = max(relations, key=lambda dict: dict["weight"])["rel"]
-        sentence = convert_relation_to_sentence(*edge, max_relation, conceptnet)
+        sentence = get_sentence_from_edge(edge, conceptnet)
         sentences.append(sentence)
     return sentences
 
@@ -90,21 +119,41 @@ def main():
     subgraphs = {}
     for concept_key in tqdm(concept_set, desc="processing concepts"):
         concept_tuple = concept_key.split()
-        subgraphs.setdefault(concept_key, {})
-        for i, c1 in enumerate(concept_tuple[:-1]):
-            for c2 in concept_tuple[i + 1 :]:
-                pair_key = f"{c1} {c2}"
-                subgraphs[concept_key].setdefault(pair_key, [])
-                c1_to_c2, c2_to_c1 = query_shortest_path(conceptnet, c1, c2)
-                sentences_c1_to_c2 = (
-                    get_sentences_from_path(c1_to_c2, conceptnet) if c1_to_c2 else []
+
+        if args.type == "complete":
+            subgraphs.setdefault(concept_key, {})
+            for i, c1 in enumerate(concept_tuple[:-1]):
+                for c2 in concept_tuple[i + 1 :]:
+                    pair_key = f"{c1} {c2}"
+                    subgraphs[concept_key].setdefault(pair_key, [])
+                    c1_to_c2, c2_to_c1 = query_shortest_path(conceptnet, c1, c2)
+                    sentences_c1_to_c2 = (
+                        get_sentences_from_path(c1_to_c2, conceptnet)
+                        if c1_to_c2
+                        else []
+                    )
+                    sentences_c2_to_c1 = (
+                        get_sentences_from_path(c2_to_c1, conceptnet)
+                        if c2_to_c1
+                        else []
+                    )
+                    subgraphs[concept_key][pair_key].extend(
+                        [sentences_c1_to_c2, sentences_c2_to_c1]
+                    )
+        elif args.type == "spantree":
+            vertices = set()
+            for i, c1 in enumerate(concept_tuple[:-1]):
+                for c2 in concept_tuple[i + 1 :]:
+                    c1_to_c2, c2_to_c1 = query_shortest_path(conceptnet, c1, c2)
+                    vertices.update(set(c1_to_c2) if c1_to_c2 else set())
+                    vertices.update(set(c2_to_c1) if c2_to_c1 else set())
+            spanning_tree = query_spanning_tree(conceptnet, vertices)
+            sentences = []
+            for edge in spanning_tree.edges:
+                sentences.append(
+                    get_sentence_from_edge((edge[0], edge[1]), conceptnet, True)
                 )
-                sentences_c2_to_c1 = (
-                    get_sentences_from_path(c2_to_c1, conceptnet) if c2_to_c1 else []
-                )
-                subgraphs[concept_key][pair_key].extend(
-                    [sentences_c1_to_c2, sentences_c2_to_c1]
-                )
+            subgraphs[concept_key] = sentences
 
     with open(args.tgt_path, "w") as f:
         f.write(json.dumps(subgraphs, indent=4))

@@ -100,6 +100,8 @@ class Conceptnet:
             return self._local_shortest_path(kwargs["start"], kwargs["end"])
         if kwargs["mode"] == "edge":
             return self._local_edge(kwargs["start"], kwargs["end"])
+        if kwargs["mode"] == "spantree":
+            return self._local_spantree(kwargs["vertices"])
         else:
             raise RuntimeError("Unknown mode for local Conceptnet query")
 
@@ -178,4 +180,9 @@ class Conceptnet:
 
     def _local_edge(self, start, end):
         return self.graph.get_edge_data(start, end).values()
+
+    def _local_spantree(self, vertices):
+        subgraph = self.graph.subgraph(vertices).to_undirected()
+        spanning_tree = nx.minimum_spanning_tree(subgraph)
+        return spanning_tree
 

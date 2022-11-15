@@ -156,6 +156,14 @@ class CommonGenDataModule(pl.LightningDataModule):
                 + self.tokenizer.sep_token
             )
             return input, 0
+        elif self.enhancement_type == "spantree":
+            input = " ".join(concepts)
+            sentences = self.enhancement.get(input, [])
+            input += (
+                f" {self.tokenizer.sep_token} "
+                + f" {self.tokenizer.sep_token} ".join(sentences)
+            )
+            return input, 0
 
     def _select_sentence_with_multiple_words(self, keywords, sentences, threshold):
         kw_set = set(keywords)
@@ -170,7 +178,13 @@ class CommonGenDataModule(pl.LightningDataModule):
         return None
 
     def _setup_enhancement(self, enhancement_type, enhancement_file):
-        if enhancement_type in ["basic", "all_keywords", "pair", "subgraph"]:
+        if enhancement_type in [
+            "basic",
+            "all_keywords",
+            "pair",
+            "subgraph",
+            "spantree",
+        ]:
             with open(enhancement_file, "r") as file:
                 return json.load(file)
         return {}
