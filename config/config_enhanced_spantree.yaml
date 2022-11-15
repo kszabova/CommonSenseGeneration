@@ -1,0 +1,24 @@
+common_gen_config:
+  logging:
+    log_interval: 5
+    log_level: INFO
+  pretraining:
+    ckpt_path:
+  enhancement:
+    type: spantree
+    file_path: ./data/conceptnet_spantrees.json
+  training:
+    data:
+      csv_file_path:
+    hparams:
+      learning_rate: 2.0e-5
+      batch_size: 3
+      min_epochs: 1
+      max_epochs: 1
+  infrastructure:
+    gpus:
+  output:
+    model_name: enhanced_spantree
+    ckpt_path:
+  iterations: 1
+  rnd_seed: 42
