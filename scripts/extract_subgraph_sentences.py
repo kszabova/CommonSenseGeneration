@@ -2,12 +2,9 @@ import json
 
 from tqdm import tqdm
 from datasets import load_dataset
+from argparse import ArgumentParser
 
 from utils.conceptnet import Conceptnet
-
-concept_path = "./data/concept.txt"
-relation_path = "./data/relation.txt"
-cpnet_graph_path = "./data/conceptnet.graph"
 
 PATTERNS = {
     "antonym": "{c1} is the opposite of {c2}",
@@ -30,6 +27,15 @@ PATTERNS = {
 }
 
 concept_set = None
+
+
+def get_args():
+    parser = ArgumentParser()
+    parser.add_argument(
+        "--graph_filename", type=str, help="Location of the stored conceptnet graph."
+    )
+    parser.add_argument("--tgt_path", type=str, help="Where the output will be stored.")
+    return parser
 
 
 def load_concept_set():
@@ -75,8 +81,11 @@ def get_sentences_from_path(path, conceptnet):
 
 
 def main():
+    parser = get_args()
+    args = parser.parse_args()
+
     load_concept_set()
-    conceptnet = Conceptnet()
+    conceptnet = Conceptnet(graph_filename=args.graph_filename)
 
     subgraphs = {}
     for concept_key in tqdm(concept_set, desc="processing concepts"):
@@ -97,7 +106,7 @@ def main():
                     [sentences_c1_to_c2, sentences_c2_to_c1]
                 )
 
-    with open("./data/conceptnet_subgraphs.json", "w") as f:
+    with open(args.tgt_path, "w") as f:
         f.write(json.dumps(subgraphs, indent=4))
 
 
