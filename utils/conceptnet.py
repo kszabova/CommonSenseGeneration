@@ -47,11 +47,13 @@ class Conceptnet:
         base_url=BASE_URL,
         query_url=QUERY_URL,
         allowed_relations=ALLOWED_RELATIONS,
+        graph_filename=None,
     ):
         self.base_url = base_url
         self.query_url = query_url
         self.allowed_relations = allowed_relations
 
+        self.graph_filename = graph_filename
         self.graph = None
         self.resources = None
 
@@ -90,7 +92,7 @@ class Conceptnet:
         if not self.resources:
             self._load_resources()
 
-        graph_path = DATA_DIR + "conceptnet.graph"
+        graph_path = DATA_DIR + self.graph_filename
         if not self.graph:
             self.graph = nx.read_gpickle(graph_path)
 
