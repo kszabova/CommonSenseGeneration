@@ -52,6 +52,12 @@ class ValidationCallback(Callback):
             bleu = evaluate.load("bleu")
             bleu_results = bleu.compute(predictions=predictions, references=references)
 
+            sacrebleu = evaluate.load("sacrebleu")
+            sacrebleu_references = self._prepare_refs_for_sacrebleu(references)
+            sacrebleu_results = sacrebleu.compute(
+                predictions=predictions, references=sacrebleu_references
+            )
+
             unrolled_refs = []
             unrolled_preds = []
             for refs, pred in zip(references, predictions):
@@ -79,6 +85,7 @@ class ValidationCallback(Callback):
             results["generated_sentences"] = self.generated_sentences
             results["metrics"] = {
                 "bleu": bleu_results,
+                "sacrebleu": sacrebleu_results,
                 "rouge": rouge_results,
                 "meteor": meteor_results,
                 "cider": cider_results,
@@ -92,3 +99,14 @@ class ValidationCallback(Callback):
         input_kw = input_kw.split(eos_sep)[0]
         input_kw = input_kw.strip()
         return input_kw
+
+    def _prepare_refs_for_sacrebleu(self, references):
+        lengths = set([len(ref_list) for ref_list in references])
+        max_length = max(lengths)
+        sacrebleu_references = []
+        for ref_list in references:
+            cur_length = len(ref_list)
+            sacrebleu_references.append(
+                ref_list + ["" for _ in range(max_length - cur_length)]
+            )
+        return sacrebleu_references
