@@ -1,24 +1,19 @@
-common_gen_config:
-  logging:
-    log_interval: 50
-    log_level: INFO
-  pretraining:
-    ckpt_path:
-  enhancement:
-    type: pair
-    file_path: ~/common-sense-gen/CommonSenseGeneration/data/extracted_sentences_pair.json
-  training:
-    data:
-      csv_file_path:
-    hparams:
-      learning_rate: 2.0e-5
-      batch_size: 3
-      min_epochs: 1
-      max_epochs: 1
-  infrastructure:
-    gpus: 1
-  output:
-    model_name: enhanced_pair
-    ckpt_path:
-  iterations: 5
-  rnd_seed: 42
+log_interval: 50
+log_level: INFO
+pretraining:
+pretrained_ckpt_path:
+enh_type: pair
+enh_path: ~/common-sense-gen/CommonSenseGeneration/data/extracted_sentences_pair.json
+csv_path:
+valid_path: ./data/valid_references.json
+learning_rate: 2.0e-5
+batch_size: 3
+min_epochs: 1
+max_epochs: 1
+gpus: 1
+base_dir:
+model_name: enhanced_pair
+ckpt_path:
+iterations: 5
+rnd_seed: 42
+remove_dev_duplicates: yes

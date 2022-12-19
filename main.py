@@ -10,6 +10,8 @@ from transformers import BartTokenizer, BartForConditionalGeneration
 from common_gen_model import CommonGenModel
 from common_gen_data_module import CommonGenDataModule
 
+from utils.config import Config
+
 from callbacks import (
     CoverageCallback,
     LossCallback,
@@ -34,51 +36,44 @@ def setup_logging(level):
     )
 
 
-def setup_model(config, iteration):
+def setup_model(config: Config, iteration):
     tokenizer = BartTokenizer.from_pretrained("facebook/bart-base")
     model = BartForConditionalGeneration.from_pretrained("facebook/bart-base")
-    common_gen_data = CommonGenDataModule(
-        config["training"]["hparams"]["batch_size"],
-        tokenizer,
-        enhancement_type=config["enhancement"]["type"],
-        enhancement_file=config["enhancement"]["file_path"],
-        csv=config["training"]["data"]["csv_file_path"],
-    )
+    common_gen_data = CommonGenDataModule(tokenizer, config)
 
     kwargs = {
-        "learning_rate": config["training"]["hparams"]["learning_rate"],
+        "learning_rate": config.learning_rate,
         "tokenizer": tokenizer,
         "model": model,
         "hparams": None,
-        "log_interval": config["logging"]["log_interval"],
+        "log_interval": config.log_interval,
     }
-    if config["pretraining"]["ckpt_path"]:
+    if config.pretrained_ckpt_path:
         common_gen_model = CommonGenModel.load_from_checkpoint(
-            config["pretraining"]["ckpt_path"], **kwargs
+            config.pretrained_ckpt_path, **kwargs
         )
     else:
         common_gen_model = CommonGenModel(**kwargs)
 
-    model_name = config["output"]["model_name"] + f"{iteration:02d}"
+    model_name = config.model_name + f"{iteration:02d}"
     validation_output_file = f"val_output_{model_name}.txt"
     callbacks = [
-        CoverageCallback(config["enhancement"]["type"] == "pair"),
-        LossCallback(config["logging"]["log_interval"]),
+        CoverageCallback(config.enh_type == "pair"),
+        LossCallback(config.log_interval),
         TensorBoardCallback(model_name),
-        ValidationCallback(
-            validation_output_file, config["training"]["hparams"]["min_epochs"],
-        ),
+        ValidationCallback(validation_output_file, config),
+        # TODO use ckpt form config
         ModelCheckpoint(f"./checkpoints/{model_name}/", save_weights_only=True),
     ]
 
     trainer = pl.Trainer(
         default_root_dir=".",
-        gpus=config["infrastructure"]["gpus"],
-        min_epochs=config["training"]["hparams"]["min_epochs"],
-        max_epochs=config["training"]["hparams"]["max_epochs"],
+        gpus=config.gpus,
+        min_epochs=config.min_epochs,
+        max_epochs=config.max_epochs,
         auto_lr_find=False,
         callbacks=callbacks,
-        log_every_n_steps=config["logging"]["log_interval"],
+        log_every_n_steps=config.log_interval,
         enable_progress_bar=False,
     )
 
@@ -95,20 +90,19 @@ def main():
     parser = get_arg_parser()
     args = parser.parse_args()
 
-    with open(args.config, "r") as f:
-        config = yaml.safe_load(f)["common_gen_config"]
+    config = Config.load_config(args.config)
 
     # fix random seeds
-    seed = config["rnd_seed"]
+    seed = config.rnd_seed
     torch.manual_seed(seed)
     random.seed(seed)
 
-    setup_logging(config["logging"]["log_level"])
+    setup_logging(config.log_level)
     logger = logging.getLogger("main")
 
-    iterations = config["iterations"]
+    iterations = config.iterations
     for i in range(iterations):
-        logger.info(f"Training model {config['output']['model_name']}{i:02d}")
+        logger.info(f"Training model {config.model_name}{i:02d}")
         trainer, model, data = setup_model(config, i)
         model_loop(trainer, model, data)
 

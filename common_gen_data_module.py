@@ -7,31 +7,23 @@ import json
 from datasets import load_dataset
 
 from csv_dataset import CSVDataset
+from utils.config import Config
 
 
 class CommonGenDataModule(pl.LightningDataModule):
     def __init__(
-        self,
-        batch_size,
-        tokenizer,
-        enhancement_type=None,
-        enhancement_file=None,
-        csv=None,
-        remove_dev_duplicates=True,
+        self, tokenizer, config: Config,
     ):
         super().__init__()
+        self.config = config
         self.tokenizer = tokenizer
-        self.batch_size = batch_size
         self.dataset = load_dataset("common_gen")
-        self.enhancement_type = enhancement_type
-        self.enhancement = self._setup_enhancement(enhancement_type, enhancement_file)
-        self.csv = csv
-        self.remove_dev_duplicates = remove_dev_duplicates
+        self.enhancement = self._setup_enhancement(config.enh_type, config.enh_path)
         self.setup(None)
 
     def setup(self, stage):
-        if self.csv:
-            self.train = CSVDataset(self.csv)
+        if self.config.csv_path:
+            self.train = CSVDataset(self.config.csv_path)
         else:
             self.train = self.dataset["train"]
         # self.validation = torch.utils.data.Subset(self.dataset["validation"], range(10))
@@ -41,19 +33,21 @@ class CommonGenDataModule(pl.LightningDataModule):
     def train_dataloader(self):
         return DataLoader(
             self.train,
-            batch_size=self.batch_size,
+            batch_size=self.config.batch_size,
             collate_fn=self._collate_batch,
             shuffle=True,
         )
 
     def val_dataloader(self):
         return DataLoader(
-            self.validation, batch_size=self.batch_size, collate_fn=self._collate_batch
+            self.validation,
+            batch_size=self.config.batch_size,
+            collate_fn=self._collate_batch,
         )
 
     def test_dataloader(self):
         return DataLoader(
-            self.test, batch_size=self.batch_size, collate_fn=self._collate_batch
+            self.test, batch_size=self.config.batch_size, collate_fn=self._collate_batch
         )
 
     def _collate_batch(self, batch):
@@ -83,9 +77,9 @@ class CommonGenDataModule(pl.LightningDataModule):
         }
 
     def _perform_enhancement_on_input(self, concepts):
-        if not self.enhancement_type:
+        if not self.config.enh_type:
             return " ".join([str(concept) for concept in concepts]), 0
-        elif self.enhancement_type == "basic":
+        elif self.config.enh_type == "basic":
             # select a random sentence for a random concept
             input = " ".join(concepts)
             sentences = []
@@ -104,7 +98,7 @@ class CommonGenDataModule(pl.LightningDataModule):
                 + self.tokenizer.sep_token
             )
             return input, 0
-        elif self.enhancement_type == "all_keywords":
+        elif self.config.enh_type == "all_keywords":
             # select a random sentence for each of the concepts
             input = " ".join(concepts)
             sentences = []
@@ -124,7 +118,7 @@ class CommonGenDataModule(pl.LightningDataModule):
                 + self.tokenizer.sep_token
             )
             return input, 0
-        elif self.enhancement_type == "pair":
+        elif self.config.enh_type == "pair":
             # select a sentence that contains at least two of the concepts
             input = " ".join(concepts)
             sentences = []
@@ -146,7 +140,7 @@ class CommonGenDataModule(pl.LightningDataModule):
                 + self.tokenizer.sep_token
             )
             return input, 1 if sentence else 0
-        elif self.enhancement_type == "subgraph":
+        elif self.config.enh_type == "subgraph":
             input = " ".join(concepts)
             sentences = []
             concept_subgraph = self.enhancement.get(" ".join(concepts), {})
@@ -163,7 +157,7 @@ class CommonGenDataModule(pl.LightningDataModule):
                 + self.tokenizer.sep_token
             )
             return input, 0
-        elif self.enhancement_type == "spantree":
+        elif self.config.enh_type == "spantree":
             input = " ".join(concepts)
             sentences = self.enhancement.get(input, [])
             input += (
@@ -184,8 +178,8 @@ class CommonGenDataModule(pl.LightningDataModule):
             return random.choice(valid_sentences)
         return None
 
-    def _setup_enhancement(self, enhancement_type, enhancement_file):
-        if enhancement_type in [
+    def _setup_enhancement(self, enh_type, enhancement_file):
+        if enh_type in [
             "basic",
             "all_keywords",
             "pair",
@@ -197,7 +191,7 @@ class CommonGenDataModule(pl.LightningDataModule):
         return {}
 
     def _select_unique_inputs(self, data):
-        if not self.remove_dev_duplicates:
+        if not self.config.remove_dev_duplicates:
             return data
 
         seen_concepts = set()
@@ -211,6 +205,6 @@ class CommonGenDataModule(pl.LightningDataModule):
                 continue
             seen_concepts.add(datapoint["concept_set_idx"])
             unique_examples.append(i)
-        with open("./data/valid_references.json", "w") as file:
+        with open(self.config.valid_path, "w") as file:
             file.write(json.dumps(references, indent=4))
         return torch.utils.data.Subset(data, unique_examples)
