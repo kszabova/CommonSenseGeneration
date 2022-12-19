@@ -54,11 +54,14 @@ class CommonGenDataModule(pl.LightningDataModule):
         )
 
     def _collate_batch(self, batch):
+        concepts = []
         inputs = []
         total_keywords = 0
         total_pairs_found = 0
         for data in batch:
-            input, pairs_found = self._perform_enhancement_on_input(data["concepts"])
+            conc = data["concepts"]
+            concepts.append(conc)
+            input, pairs_found = self._perform_enhancement_on_input(conc)
             total_keywords += 1
             total_pairs_found += pairs_found
             inputs.append(input)
@@ -73,6 +76,7 @@ class CommonGenDataModule(pl.LightningDataModule):
             "labels": tokenized_targets["input_ids"],
             "keywords": total_keywords,
             "pairs_found": total_pairs_found,
+            "concepts": concepts,
         }
 
     def _perform_enhancement_on_input(self, concepts):
