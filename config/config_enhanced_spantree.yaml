@@ -1,6 +1,5 @@
 log_interval: 5
 log_level: INFO
-pretraining:
 pretrained_ckpt_path:
 enh_type: spantree
 enh_path: ./data/conceptnet_spantrees.json

@@ -1,6 +1,5 @@
 log_interval: 50
 log_level: INFO
-pretraining:
 pretrained_ckpt_path:
 enh_type:
 enh_path:
