@@ -1,6 +1,5 @@
 log_interval: 50
 log_level: INFO
-pretraining:
 pretrained_ckpt_path: ~/common-sense-gen/checkpoints/pretrained00/epoch=0-step=43681.ckpt
 enh_type:
 enh_path:

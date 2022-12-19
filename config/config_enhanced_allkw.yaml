@@ -1,6 +1,5 @@
 log_interval: 50
 log_level: INFO
-pretraining:
 pretrained_ckpt_path:
 enh_type: all_keywords
 enh_path: ~/common-sense-gen/CommonSenseGeneration/data/extracted_sentences_single.json
