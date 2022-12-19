@@ -204,9 +204,15 @@ class CommonGenDataModule(pl.LightningDataModule):
 
         seen_concepts = set()
         unique_examples = []
+        references = {}
         for i, datapoint in enumerate(data):
+            # TODO work with concept_set_idx
+            concept_str = " ".join(datapoint["concepts"])
+            references.setdefault(concept_str, []).append(datapoint["target"])
             if datapoint["concept_set_idx"] in seen_concepts:
                 continue
             seen_concepts.add(datapoint["concept_set_idx"])
             unique_examples.append(i)
+        with open("./data/valid_references.json", "w") as file:
+            file.write(json.dumps(references, indent=4))
         return torch.utils.data.Subset(data, unique_examples)
