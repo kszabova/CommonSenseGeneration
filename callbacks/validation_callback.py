@@ -7,17 +7,19 @@ import evaluate
 import gem_metrics
 
 from metrics import ConceptRecall, GranularBLEU
+from utils.config import Config
 
 
 class ValidationCallback(Callback):
-    def __init__(self, output_file, min_epochs) -> None:
+    def __init__(self, output_file, config: Config) -> None:
         super().__init__()
         self.output_file = output_file
-        self.min_epoch_idx = min_epochs - 1
+        self.min_epoch_idx = config.min_epochs - 1
 
         self.generated_sentences = {}
-        # TODO get filename from config
-        self.valid_file = "./data/valid_references.json"
+
+        # TODO if there is no valid_path, do something else
+        self.valid_file = config.valid_path
 
         self.references = self._get_references()
 
