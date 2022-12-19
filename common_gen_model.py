@@ -33,6 +33,7 @@ class CommonGenModel(pl.LightningModule):
         # Load batch data
         src_ids, src_mask = batch["input_ids"], batch["attention_mask"]
         tgt_ids = batch["labels"]
+        concepts = batch["concepts"]
         # Shift the decoder tokens right
         # This is important, idk why
         decoder_input_ids = shift_tokens_right(tgt_ids, self.tokenizer.pad_token_id)
@@ -69,7 +70,12 @@ class CommonGenModel(pl.LightningModule):
             return {
                 "loss": loss,
                 "bleu": bleu_score,
-                "examples": {"src": src_text, "ref": ref_text, "pred": generated_text},
+                "examples": {
+                    "src": src_text,
+                    "ref": ref_text,
+                    "pred": generated_text,
+                    "concepts": concepts,
+                },
                 "log": tb_log,
             }
 
@@ -92,6 +98,7 @@ class CommonGenModel(pl.LightningModule):
 
         src_ids, src_mask = batch["input_ids"], batch["attention_mask"]
         tgt_ids = batch["labels"]
+        concepts = batch["concepts"]
 
         decoder_input_ids = shift_tokens_right(tgt_ids, self.tokenizer.pad_token_id)
 
@@ -124,7 +131,12 @@ class CommonGenModel(pl.LightningModule):
 
         return {
             "val_loss": val_loss,
-            "examples": {"src": src_text, "ref": ref_text, "pred": generated_text},
+            "examples": {
+                "src": src_text,
+                "ref": ref_text,
+                "pred": generated_text,
+                "concepts": concepts,
+            },
         }
 
     def validation_epoch_end(self, outputs):
