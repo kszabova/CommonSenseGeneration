@@ -17,6 +17,7 @@ class CommonGenDataModule(pl.LightningDataModule):
         enhancement_type=None,
         enhancement_file=None,
         csv=None,
+        remove_dev_duplicates=True,
     ):
         super().__init__()
         self.tokenizer = tokenizer
@@ -25,6 +26,7 @@ class CommonGenDataModule(pl.LightningDataModule):
         self.enhancement_type = enhancement_type
         self.enhancement = self._setup_enhancement(enhancement_type, enhancement_file)
         self.csv = csv
+        self.remove_dev_duplicates = remove_dev_duplicates
         self.setup(None)
 
     def setup(self, stage):
@@ -32,7 +34,8 @@ class CommonGenDataModule(pl.LightningDataModule):
             self.train = CSVDataset(self.csv)
         else:
             self.train = self.dataset["train"]
-        self.validation = self.dataset["validation"]
+        # self.validation = torch.utils.data.Subset(self.dataset["validation"], range(10))
+        self.validation = self._select_unique_inputs(self.dataset["validation"])
         self.test = self.dataset["test"]
 
     def train_dataloader(self):
@@ -192,3 +195,22 @@ class CommonGenDataModule(pl.LightningDataModule):
             with open(enhancement_file, "r") as file:
                 return json.load(file)
         return {}
+
+    def _select_unique_inputs(self, data):
+        if not self.remove_dev_duplicates:
+            return data
+
+        seen_concepts = set()
+        unique_examples = []
+        references = {}
+        for i, datapoint in enumerate(data):
+            # TODO work with concept_set_idx
+            concept_str = " ".join(datapoint["concepts"])
+            references.setdefault(concept_str, []).append(datapoint["target"])
+            if datapoint["concept_set_idx"] in seen_concepts:
+                continue
+            seen_concepts.add(datapoint["concept_set_idx"])
+            unique_examples.append(i)
+        with open("./data/valid_references.json", "w") as file:
+            file.write(json.dumps(references, indent=4))
+        return torch.utils.data.Subset(data, unique_examples)

@@ -16,6 +16,10 @@ class ValidationCallback(Callback):
         self.min_epoch_idx = min_epochs - 1
 
         self.generated_sentences = {}
+        # TODO get filename from config
+        self.valid_file = "./data/valid_references.json"
+
+        self.references = self._get_references()
 
     def on_validation_batch_end(
         self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx
@@ -41,7 +45,9 @@ class ValidationCallback(Callback):
                     },
                 )
                 self.generated_sentences[conc_string]["inputs"].append(input)
-                self.generated_sentences[conc_string]["references"].append(ref)
+                self.generated_sentences[conc_string]["references"].extend(
+                    self.references.get(conc_string, [""])
+                )
                 self.generated_sentences[conc_string]["predictions"].append(pred)
 
     def on_validation_epoch_end(self, trainer, pl_module):
@@ -124,3 +130,8 @@ class ValidationCallback(Callback):
                 ref_list + ["" for _ in range(max_length - cur_length)]
             )
         return sacrebleu_references
+
+    def _get_references(self):
+        with open(self.valid_file, "r") as file:
+            references = json.load(file)
+        return references
