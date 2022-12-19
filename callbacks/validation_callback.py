@@ -6,6 +6,8 @@ import evaluate
 
 import gem_metrics
 
+from metrics import ConceptRecall, GranularBLEU
+
 
 class ValidationCallback(Callback):
     def __init__(self, output_file, min_epochs) -> None:
@@ -50,10 +52,12 @@ class ValidationCallback(Callback):
                 pass
             predictions = []
             references = []
+            concepts = []
             for value in self.generated_sentences.values():
                 for pred in value["predictions"]:
                     predictions.append(pred)
                     references.append(value["references"])
+                    concepts.append(value["concepts"])
 
             bleu = evaluate.load("bleu")
             bleu_results = bleu.compute(predictions=predictions, references=references)
@@ -62,6 +66,11 @@ class ValidationCallback(Callback):
             sacrebleu_references = self._prepare_refs_for_sacrebleu(references)
             sacrebleu_results = sacrebleu.compute(
                 predictions=predictions, references=sacrebleu_references
+            )
+
+            granular_bleu = GranularBLEU()
+            granular_bleu_results = granular_bleu.compute(
+                concepts, predictions, sacrebleu_references
             )
 
             unrolled_refs = []
@@ -87,14 +96,19 @@ class ValidationCallback(Callback):
                 preds_gem, refs_gem, metrics_list=["cider"]
             )
 
+            concept_recall = ConceptRecall()
+            concept_recall_results = concept_recall.compute(concepts, predictions)
+
             results = {}
             results["generated_sentences"] = self.generated_sentences
             results["metrics"] = {
                 "bleu": bleu_results,
                 "sacrebleu": sacrebleu_results,
+                "granular_bleu": granular_bleu_results,
                 "rouge": rouge_results,
                 "meteor": meteor_results,
                 "cider": cider_results,
+                "concept_recall": concept_recall_results,
             }
 
             with open(self.output_file, "w") as output_f:
