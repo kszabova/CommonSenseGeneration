@@ -17,6 +17,7 @@ from callbacks import (
     LossCallback,
     TensorBoardCallback,
     ValidationCallback,
+    SavePretrainedModelCallback,
 )
 from pytorch_lightning.callbacks import ModelCheckpoint
 
@@ -62,8 +63,8 @@ def setup_model(config: Config, iteration):
         LossCallback(config.log_interval),
         TensorBoardCallback(model_name),
         ValidationCallback(validation_output_file, config),
-        # TODO use ckpt form config
-        ModelCheckpoint(f"./checkpoints/{model_name}/", save_weights_only=True),
+        ModelCheckpoint(f"{config.ckpt_path}/{model_name}/", save_weights_only=True),
+        SavePretrainedModelCallback(f"{config.ckpt_path}/{model_name}"),
     ]
 
     trainer = pl.Trainer(

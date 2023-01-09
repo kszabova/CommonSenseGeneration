@@ -2,3 +2,4 @@ from .coverage_callback import CoverageCallback
 from .loss_callback import LossCallback
 from .tensor_board_callback import TensorBoardCallback
 from .validation_callback import ValidationCallback
+from .save_pretrained_callback import SavePretrainedModelCallback
