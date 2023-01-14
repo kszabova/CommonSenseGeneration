@@ -6,6 +6,7 @@ from transformers import (
     Trainer,
 )
 from datasets import load_from_disk
+import torch
 
 
 def get_argparser():
@@ -40,6 +41,10 @@ def main():
     # set up model and tokenizer
     model = BartForConditionalGeneration.from_pretrained("facebook/bart-base")
     tokenizer = BartTokenizer.from_pretrained("facebook/bart-base")
+
+    # load to cuda
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    model.to(device)
 
     # load data
     dataset = load_from_disk("./data/error_fixer_data.data")
