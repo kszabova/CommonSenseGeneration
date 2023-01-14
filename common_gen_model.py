@@ -35,7 +35,7 @@ class CommonGenModel(pl.LightningModule):
         tgt_ids = batch["labels"]
         concepts = batch["concepts"]
         # Shift the decoder tokens right
-        # This is important, idk why
+        # Decoder starts generating from a <eos> token
         decoder_input_ids = shift_tokens_right(tgt_ids, self.tokenizer.pad_token_id)
 
         # Run the model

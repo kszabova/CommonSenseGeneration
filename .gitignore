@@ -10,3 +10,5 @@ data/conceptnet-assertions-5.6.0.csv
 data/conceptnet-english.csv
 data/conceptnet.graph
 *valid_references.json
+models/
+data/classifier_data.data/
