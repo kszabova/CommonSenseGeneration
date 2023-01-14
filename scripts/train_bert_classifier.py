@@ -55,7 +55,7 @@ def main():
 
     # set up training
     training_args = TrainingArguments(
-        output_dir="test_trainer", evaluation_strategy="epoch"
+        output_dir="test_trainer", evaluation_strategy="epoch", num_train_epochs=2,
     )
     trainer = Trainer(
         model=model,

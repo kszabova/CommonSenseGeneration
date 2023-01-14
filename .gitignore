@@ -12,3 +12,4 @@ data/conceptnet.graph
 *valid_references.json
 models/
 data/classifier_data.data/
+./config/
