@@ -42,10 +42,6 @@ def main():
     model = BartForConditionalGeneration.from_pretrained("facebook/bart-base")
     tokenizer = BartTokenizer.from_pretrained("facebook/bart-base")
 
-    # load to cuda
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    model.to(device)
-
     # load data
     dataset = load_from_disk("./data/error_fixer_data.data")
     train_ds = (
@@ -64,6 +60,8 @@ def main():
         output_dir="error_fixer_trainer",
         evaluation_strategy="epoch",
         num_train_epochs=2,
+        per_device_train_batch_size=3,
+        per_device_eval_batch_size=3,
     )
     trainer = Trainer(
         model=model, args=training_args, train_dataset=train_ds, eval_dataset=test_ds,
