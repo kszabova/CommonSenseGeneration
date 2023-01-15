@@ -105,7 +105,8 @@ def main():
     for i in range(iterations):
         logger.info(f"Training model {config.model_name}{i:02d}")
         trainer, model, data = setup_model(config, i)
-        model_loop(trainer, model, data)
+        if config.train:
+            model_loop(trainer, model, data)
 
 
 if __name__ == "__main__":
