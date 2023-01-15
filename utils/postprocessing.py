@@ -22,6 +22,8 @@ class Postprocess:
             postprocessed = self.tokenizer.decode(
                 output_ids[0], skip_special_tokens=True
             )
+            if not postprocessed:
+                return inputs
             return postprocessed
         if self.type == "selection":
             raise NotImplementedError
