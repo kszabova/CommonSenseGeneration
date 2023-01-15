@@ -8,6 +8,7 @@ import gem_metrics
 
 from metrics import ConceptRecall, GranularBLEU
 from utils.config import Config
+from utils.postprocessing import Postprocess
 
 
 class ValidationCallback(Callback):
@@ -15,6 +16,8 @@ class ValidationCallback(Callback):
         super().__init__()
         self.output_file = output_file
         self.min_epoch_idx = config.min_epochs - 1
+
+        self.postprocessing = Postprocess(config)
 
         self.generated_sentences = {}
 
@@ -36,6 +39,9 @@ class ValidationCallback(Callback):
             for input, ref, pred, conc in zip(
                 inputs, references, predictions, concepts
             ):
+                # postprocess pred
+                pred = self.postprocessing.postprocess(pred)
+                # update stored generated_sentences
                 conc_string = " ".join(conc)
                 self.generated_sentences[conc_string] = self.generated_sentences.get(
                     conc_string,

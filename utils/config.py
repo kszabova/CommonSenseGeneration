@@ -26,6 +26,7 @@ class Config:
     valid_path: str = None
 
     # training:
+    train: bool = True
     learning_rate: float = 1e-4
     batch_size: int = 3
     min_epochs: int = 1
