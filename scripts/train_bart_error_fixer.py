@@ -28,11 +28,12 @@ def get_output_tokenize_function(tokenizer):
         tokenized = tokenizer(examples["output"], padding="max_length", truncation=True)
         eos_token = tokenizer.eos_token_id
         # shift tokens right
-        for input_ids in tokenized["input_ids"]:
+        decoder_input_ids = tokenized["input_ids"].copy()
+        for input_ids in decoder_input_ids:
             input_ids.insert(0, eos_token)
             input_ids.pop()
         return {
-            "decoder_input_ids": tokenized["input_ids"],
+            "decoder_input_ids": decoder_input_ids,
             "decoder_attention_mask": tokenized["attention_mask"],
             "labels": tokenized["input_ids"].copy(),
         }
