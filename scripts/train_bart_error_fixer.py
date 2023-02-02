@@ -62,7 +62,6 @@ def main():
         .map(get_input_tokenize_function(tokenizer), batched=True)
         .map(get_output_tokenize_function(tokenizer), batched=True)
     )
-    small_train_ds = train_ds.select(random.sample(range(len(train_ds)), 10000))
 
     # set up training
     training_args = TrainingArguments(
@@ -74,10 +73,7 @@ def main():
         per_device_eval_batch_size=1,
     )
     trainer = Trainer(
-        model=model,
-        args=training_args,
-        train_dataset=small_train_ds,
-        eval_dataset=test_ds,
+        model=model, args=training_args, train_dataset=train_ds, eval_dataset=test_ds,
     )
 
     # train model
