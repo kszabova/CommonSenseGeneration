@@ -8,6 +8,7 @@ from transformers import (
 )
 from datasets import load_from_disk
 import torch
+import copy
 
 
 def get_argparser():
@@ -28,7 +29,7 @@ def get_output_tokenize_function(tokenizer):
         tokenized = tokenizer(examples["output"], padding="max_length", truncation=True)
         eos_token = tokenizer.eos_token_id
         # shift tokens right
-        decoder_input_ids = tokenized["input_ids"].copy()
+        decoder_input_ids = copy.deepcopy(tokenized["input_ids"])
         for input_ids in decoder_input_ids:
             input_ids.insert(0, eos_token)
             input_ids.pop()
