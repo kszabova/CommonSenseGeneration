@@ -22,7 +22,7 @@ def main():
     if args.include_concept_completeness:
         nlp = get_nlp_object()
 
-    data_orig = get_data(args.dataset, args.split)
+    data_orig = get_data(args.dataset, args.split, args.include_concept_completeness)
     vocab = gather_vocab(data_orig)
     data_with_replacement = get_dataset_with_replacement(
         data_orig, vocab, args.include_concept_completeness, nlp=nlp
