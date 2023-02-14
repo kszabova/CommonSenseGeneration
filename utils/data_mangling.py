@@ -3,7 +3,7 @@ import datasets
 import spacy
 
 
-def get_data(dataset, split, keep_concepts=False):
+def get_data(dataset, split, keep_concepts=False, *, nlp=None):
     data = datasets.load_dataset(dataset, split=split)
     if not keep_concepts:
         data = data.remove_columns(["concept_set_idx", "concepts"])
@@ -11,6 +11,16 @@ def get_data(dataset, split, keep_concepts=False):
         data = data.remove_columns(["concept_set_idx"])
     data = data.rename_column("target", "input")
     data = data.map(lambda example: {"output": example["input"]})
+    if keep_concepts:
+        if not nlp:
+            raise ValueError("Must pass in nlp object if keeping concepts")
+        data = data.map(
+            lambda example: {
+                "contains_all_concepts": _count_concepts_in_output(
+                    example["input"], example["concepts"], nlp
+                )
+            }
+        )
     return data
 
 
@@ -51,15 +61,17 @@ def get_dataset_with_replacement(
             raise ValueError(
                 "Must pass in nlp object if including concept completeness"
             )
-        new_data["all_concepts"] = []
+        new_data["contains_all_concepts"] = []
+        new_data["concepts"] = []
     for item in data:
         replacement_sentence = random_word_replacement(item["input"], vocab, 5)
         new_data["input"].append(replacement_sentence)
         new_data["output"].append(item["input"])
         if include_concept_completeness:
-            new_data["all_concepts"].append(
+            new_data["contains_all_concepts"].append(
                 _count_concepts_in_output(replacement_sentence, item["concepts"], nlp)
             )
+            new_data["concepts"].append(item["concepts"])
     return datasets.Dataset.from_dict(new_data)
 
 
@@ -70,15 +82,17 @@ def get_dataset_with_deletion(data, include_concept_count=False, *, nlp=None):
             raise ValueError(
                 "Must pass in nlp object if including concept completeness"
             )
-        new_data["all_concepts"] = []
+        new_data["contains_all_concepts"] = []
+        new_data["concepts"] = []
     for item in data:
         deletion_sentence = random_word_deletion(item["input"], 5)
         new_data["input"].append(deletion_sentence)
         new_data["output"].append(item["input"])
         if include_concept_count:
-            new_data["all_concepts"].append(
+            new_data["contains_all_concepts"].append(
                 _count_concepts_in_output(deletion_sentence, item["concepts"], nlp)
             )
+            new_data["concepts"].append(item["concepts"])
     return datasets.Dataset.from_dict(new_data)
 
 
