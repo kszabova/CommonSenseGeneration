@@ -40,23 +40,34 @@ class ValidationCallback(Callback):
                 inputs, references, predictions, concepts
             ):
                 # postprocess pred
+                orig_pred = pred
                 pred = self.postprocessing.postprocess(pred)
+                changed = int(orig_pred != pred)
                 # update stored generated_sentences
                 conc_string = " ".join(conc)
-                self.generated_sentences[conc_string] = self.generated_sentences.get(
+                concept_data = self.generated_sentences.setdefault(
                     conc_string,
                     {
                         "concepts": conc,
                         "inputs": [],
                         "references": [],
                         "predictions": [],
-                    },
+                    }
+                    # keep original predictions if postprocessing is used
+                    | (
+                        {"originals": [], "changed": 0}
+                        if self.postprocessing.type
+                        else {}
+                    ),
                 )
-                self.generated_sentences[conc_string]["inputs"].append(input)
-                self.generated_sentences[conc_string]["references"].extend(
+                concept_data["inputs"].append(input)
+                concept_data["references"].extend(
                     self.references.get(conc_string, [""])
                 )
-                self.generated_sentences[conc_string]["predictions"].append(pred)
+                concept_data["predictions"].append(pred)
+                if self.postprocessing.type:
+                    concept_data["originals"].append(orig_pred)
+                    concept_data["changed"] += changed
 
     def on_validation_epoch_end(self, trainer, pl_module):
         if trainer.current_epoch >= self.min_epoch_idx:
