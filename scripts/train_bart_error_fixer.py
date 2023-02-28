@@ -18,12 +18,18 @@ def get_argparser():
     parser.add_argument("--data_path", type=str, default="./data/error_fixer_data.data")
     parser.add_argument("--model_name", type=str, default="error_fixer_model")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--include_concepts", action="store_true")
     return parser
 
 
 def get_input_tokenize_function(tokenizer):
-    def tokenize_function(examples):
-        return tokenizer(examples["input"], padding="max_length", truncation=True)
+    def tokenize_function(example, include_concepts=False):
+        if include_concepts:
+            concepts_string = " ".join(example["concepts"])
+            input_string = f"{concepts_string} {tokenizer.cls_token} {example['input']}"
+            return tokenizer(input_string, padding="max_length", truncation=True)
+        else:
+            return tokenizer(example["input"], padding="max_length", truncation=True)
 
     return tokenize_function
 
@@ -62,12 +68,16 @@ def main():
     dataset = load_from_disk(args.data_path)
     train_ds = (
         dataset["train"]
-        .map(get_input_tokenize_function(tokenizer), batched=True)
+        .map(
+            get_input_tokenize_function(tokenizer, args.include_concepts), batched=False
+        )
         .map(get_output_tokenize_function(tokenizer), batched=True)
     )
     test_ds = (
         dataset["test"]
-        .map(get_input_tokenize_function(tokenizer), batched=True)
+        .map(
+            get_input_tokenize_function(tokenizer, args.include_concepts), batched=False
+        )
         .map(get_output_tokenize_function(tokenizer), batched=True)
     )
 
