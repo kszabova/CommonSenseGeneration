@@ -1,5 +1,6 @@
 import argparse
 import random
+import transformers
 from transformers import (
     BartForConditionalGeneration,
     BartTokenizer,
@@ -14,6 +15,9 @@ import copy
 def get_argparser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--models_dir", type=str, default="./models")
+    parser.add_argument("--data_path", type=str, default="./data/error_fixer_data.data")
+    parser.add_argument("--model_name", type=str, default="error_fixer_model")
+    parser.add_argument("--seed", type=int, default=42)
     return parser
 
 
@@ -46,12 +50,16 @@ def main():
     parser = get_argparser()
     args = parser.parse_args()
 
+    random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    transformers.set_seed(args.seed)
+
     # set up model and tokenizer
     model = BartForConditionalGeneration.from_pretrained("facebook/bart-base")
     tokenizer = BartTokenizer.from_pretrained("facebook/bart-base")
 
     # load data
-    dataset = load_from_disk("./data/error_fixer_data.data")
+    dataset = load_from_disk(args.data_path)
     train_ds = (
         dataset["train"]
         .map(get_input_tokenize_function(tokenizer), batched=True)
@@ -78,7 +86,7 @@ def main():
 
     # train model
     trainer.train()
-    trainer.save_model(f"{args.models_dir}/error_fixer_model")
+    trainer.save_model(f"{args.models_dir}/{args.model_name}")
 
 
 if __name__ == "__main__":
