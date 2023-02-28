@@ -22,8 +22,8 @@ def get_argparser():
     return parser
 
 
-def get_input_tokenize_function(tokenizer):
-    def tokenize_function(example, include_concepts=False):
+def get_input_tokenize_function(tokenizer, include_concepts=False):
+    def tokenize_function(example):
         if include_concepts:
             concepts_string = " ".join(example["concepts"])
             input_string = f"{concepts_string} {tokenizer.cls_token} {example['input']}"
