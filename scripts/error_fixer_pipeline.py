@@ -5,6 +5,7 @@ import json
 import torch
 
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+from tqdm import tqdm
 
 from utils.model_pipeline import ModelPipeline
 
@@ -87,13 +88,14 @@ def main():
     generated_sentences = {}
 
     for partition in data:
+        length = len(partition)
         pipeline = ModelPipeline(
             models,
             partition,
             [_concat_concepts, _concat_concepts_and_output],
             [_add_output_from_base_model, _add_output_from_error_fixer],
         )
-        for output in pipeline.run_pipeline():
+        for output in tqdm(pipeline.run_pipeline(device), total=length):
             conceptset_generated_sentences = generated_sentences.setdefault(
                 output["concept_set_idx"],
                 {
