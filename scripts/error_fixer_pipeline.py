@@ -93,7 +93,7 @@ def main():
             [_concat_concepts, _concat_concepts_and_output],
             [_add_output_from_base_model, _add_output_from_error_fixer],
         )
-        for output in pipeline.run_pipeline():
+        for output in pipeline.run_pipeline(device):
             conceptset_generated_sentences = generated_sentences.setdefault(
                 output["concept_set_idx"],
                 {
