@@ -64,7 +64,7 @@ def _add_output_from_error_fixer(model_output, previous_output):
     }
 
 
-def _prepare_refs_for_sacrebleu(self, references):
+def _prepare_refs_for_sacrebleu(references):
     lengths = set([len(ref_list) for ref_list in references])
     max_length = max(lengths)
     sacrebleu_references = []
@@ -100,6 +100,8 @@ def main():
                 output["concept_set_idx"],
                 {
                     "references": [],
+                    "concepts": output["concepts"],
+                    "base_predictions": [output["base_model_output"]]
                     "predictions": [output["error_fixer_output"]],
                     "changed_output": [output["changed_input"]],
                 },
@@ -121,7 +123,7 @@ def main():
 
         with open(args.output_path, "w") as f:
             f.write(
-                json.dump(
+                json.dumps(
                     {
                         "generated_sentences": generated_sentences,
                         "sacrebleu": sacrebleu_results,
