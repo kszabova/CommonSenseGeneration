@@ -101,7 +101,7 @@ def main():
                 {
                     "references": [],
                     "concepts": output["concepts"],
-                    "base_predictions": [output["base_model_output"]]
+                    "base_predictions": [output["base_model_output"]],
                     "predictions": [output["error_fixer_output"]],
                     "changed_output": [output["changed_input"]],
                 },
