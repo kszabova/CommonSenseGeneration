@@ -84,10 +84,8 @@ class CommonGenDataModuleFromHub(CommonGenDataModule):
 
     def setup_data(self):
         dataset = load_dataset("common_gen")
-        self.train = torch.utils.data.Subset(dataset["train"], range(30))
-        self.validation = _select_unique_inputs(
-            torch.utils.data.Subset(dataset["validation"], range(10)), self.config,
-        )
+        self.train = dataset["train"]
+        self.validation = _select_unique_inputs(dataset["validation"], self.config,)
         self.test = dataset["test"]
 
     def _get_label_dict(self, batch):
@@ -104,10 +102,8 @@ class CommonGenDataModuleFromDisk(CommonGenDataModule):
 
     def setup_data(self):
         dataset = load_from_disk(self.config.dataset_path)
-        self.train = torch.utils.data.Subset(dataset["train"], range(30))
-        self.validation = _select_unique_inputs(
-            torch.utils.data.Subset(dataset["test"], range(10)), self.config
-        )
+        self.train = dataset["train"]
+        self.validation = _select_unique_inputs(dataset["test"], self.config)
         self.test = None
 
     def _get_label_dict(self, batch):
