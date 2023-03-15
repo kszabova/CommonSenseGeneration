@@ -1,5 +1,4 @@
 import argparse
-import yaml
 import random
 import torch
 import pytorch_lightning as pl
@@ -8,7 +7,11 @@ import logging
 from transformers import BartTokenizer, BartForConditionalGeneration
 
 from common_gen_model import CommonGenModel
-from common_gen_data_module import CommonGenDataModule
+
+from lightning_modules.common_gen_data_module import (
+    CommonGenDataModuleFromHub,
+    CommonGenDataModuleFromDisk,
+)
 
 from utils.config import Config
 
@@ -40,7 +43,7 @@ def setup_logging(level):
 def setup_model(config: Config, iteration):
     tokenizer = BartTokenizer.from_pretrained("facebook/bart-base")
     model = BartForConditionalGeneration.from_pretrained("facebook/bart-base")
-    common_gen_data = CommonGenDataModule(tokenizer, config)
+    common_gen_data = CommonGenDataModuleFromHub(tokenizer, config)
 
     kwargs = {
         "learning_rate": config.learning_rate,
