@@ -5,7 +5,7 @@ import pytorch_lightning as pl
 
 
 class CommonGenModule(pl.LightningModule):
-    IGNORED_BATCH_KEYS = ["concepts"]
+    IGNORED_BATCH_KEYS = ["concepts", "reference"]
     logger = logging.getLogger("lightning")
 
     def __init__(self, model, tokenizer, hparams, log_interval):
