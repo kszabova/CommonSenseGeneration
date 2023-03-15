@@ -12,6 +12,8 @@ from lightning_modules import (
     CommonGenModule,
 )
 
+from models import BartDoubleHeadsModel
+
 from utils.config import Config
 
 from callbacks import (
@@ -41,8 +43,18 @@ def setup_logging(level):
 
 def setup_model(config: Config, iteration):
     tokenizer = BartTokenizer.from_pretrained("facebook/bart-base")
-    model = BartForConditionalGeneration.from_pretrained("facebook/bart-base")
-    common_gen_data = CommonGenDataModuleFromHub(tokenizer, config)
+    # set up model
+    model = None
+    if config.model_type == "generation":
+        model = BartForConditionalGeneration.from_pretrained("facebook/bart-base")
+    elif config.model_type == "double_heads":
+        model = BartDoubleHeadsModel.from_pretrained("facebook/bart-base")
+    # set up data loader
+    data = None
+    if config.data_type == "hub":
+        data = CommonGenDataModuleFromHub(tokenizer, config)
+    elif config.data_type == "disk":
+        data = CommonGenDataModuleFromDisk(tokenizer, config)
 
     kwargs = {
         "tokenizer": tokenizer,
@@ -77,7 +89,7 @@ def setup_model(config: Config, iteration):
         enable_progress_bar=False,
     )
 
-    return trainer, common_gen_model, common_gen_data
+    return trainer, common_gen_model, data
 
 
 def model_loop(trainer, model, data):

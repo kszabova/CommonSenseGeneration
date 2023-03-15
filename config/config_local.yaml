@@ -1,3 +1,5 @@
+model_type: double_heads
+data_type: disk
 log_interval: 5
 log_level: INFO
 pretrained_ckpt_path:

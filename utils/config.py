@@ -6,6 +6,12 @@ import yaml
 
 @dataclass
 class Config:
+    # model type
+    model_type: str = "generation"
+
+    # data type
+    data_type: str = "hub"
+
     # logging
     log_interval: int = 100
     log_level: str = "INFO"
