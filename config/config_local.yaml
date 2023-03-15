@@ -3,6 +3,7 @@ log_level: INFO
 pretrained_ckpt_path:
 enh_type:
 enh_path:
+dataset_path: ./data/error_fixer_delsubtree.data
 csv_path:
 valid_path: ./data/valid_references.json
 learning_rate: 2.0e-5

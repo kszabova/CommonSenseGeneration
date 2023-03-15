@@ -22,6 +22,7 @@ class Config:
     postprocess_model_path: str = None
 
     # data
+    dataset_path: str = None
     csv_path: str = None
     valid_path: str = None
 
