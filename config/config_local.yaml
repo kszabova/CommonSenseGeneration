@@ -12,10 +12,10 @@ min_epochs: 2
 max_epochs: 2
 gpus: 0
 base_dir:
-model_name: baseline-postpr
+model_name: baseline
 ckpt_path: ./checkpoints/
 iterations: 1
 rnd_seed: 42
 remove_dev_duplicates: yes
-postprocess_type: error_fixer
-postprocess_model_path: ./models/error_fixer_model
+postprocess_type: 
+postprocess_model_path:

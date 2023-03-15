@@ -70,7 +70,6 @@ class ValidationCallback(Callback):
                     concept_data["changed"] += changed
 
     def on_validation_epoch_end(self, trainer, pl_module):
-        print(self.generated_sentences)
         if trainer.current_epoch >= self.min_epoch_idx:
             try:
                 os.remove(self.output_file)

@@ -17,6 +17,3 @@ class LossCallback(Callback):
             self.logger.info(
                 f"STEP {trainer.global_step} Loss: {trainer.callback_metrics['loss']}"
             )
-            self.logger.info(
-                f"STEP {trainer.global_step} BLEU: {trainer.callback_metrics['bleu']}"
-            )
