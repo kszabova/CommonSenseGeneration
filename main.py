@@ -6,11 +6,10 @@ import logging
 
 from transformers import BartTokenizer, BartForConditionalGeneration
 
-from common_gen_model import CommonGenModel
-
-from lightning_modules.common_gen_data_module import (
+from lightning_modules import (
     CommonGenDataModuleFromHub,
     CommonGenDataModuleFromDisk,
+    CommonGenModule,
 )
 
 from utils.config import Config
@@ -46,25 +45,22 @@ def setup_model(config: Config, iteration):
     common_gen_data = CommonGenDataModuleFromHub(tokenizer, config)
 
     kwargs = {
-        "learning_rate": config.learning_rate,
         "tokenizer": tokenizer,
         "model": model,
-        "hparams": None,
+        "hparams": {"learning_rate": config.learning_rate},
         "log_interval": config.log_interval,
     }
     if config.pretrained_ckpt_path:
-        common_gen_model = CommonGenModel.load_from_checkpoint(
+        common_gen_model = CommonGenModule.load_from_checkpoint(
             config.pretrained_ckpt_path, **kwargs
         )
     else:
-        common_gen_model = CommonGenModel(**kwargs)
+        common_gen_model = CommonGenModule(**kwargs)
 
     model_name = config.model_name + f"{iteration:02d}"
     validation_output_file = f"val_output_{model_name}.txt"
     callbacks = [
-        CoverageCallback(config.enh_type == "pair"),
         LossCallback(config.log_interval),
-        TensorBoardCallback(model_name),
         ValidationCallback(validation_output_file, config),
         ModelCheckpoint(f"{config.ckpt_path}/{model_name}/", save_weights_only=True),
         SavePretrainedModelCallback(f"{config.ckpt_path}/{model_name}"),
