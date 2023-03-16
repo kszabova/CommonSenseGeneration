@@ -33,7 +33,7 @@ class CommonGenDataModule(pl.LightningDataModule):
         return DataLoader(
             self.train,
             batch_size=self.config.batch_size,
-            collate_fn=self._collate_batch,
+            collate_fn=self._collate_fn_train,
             shuffle=True,
         )
 
@@ -41,20 +41,20 @@ class CommonGenDataModule(pl.LightningDataModule):
         return DataLoader(
             self.validation,
             batch_size=self.config.batch_size,
-            collate_fn=self._collate_batch,
+            collate_fn=self._collate_fn_valid,
         )
 
     def test_dataloader(self):
-        if self.test is None:
-            return None
         return DataLoader(
-            self.test, batch_size=self.config.batch_size, collate_fn=self._collate_batch
+            self.test,
+            batch_size=self.config.batch_size,
+            collate_fn=self._collate_fn_valid,
         )
 
     def _perform_enhancement_on_input(self, concepts):
         return self.enhancement.get_enhanced_input(concepts)
 
-    def _collate_batch(self, batch):
+    def _collate_fn_train(self, batch):
         concepts = []
         inputs = []
         for data in batch:
@@ -74,6 +74,31 @@ class CommonGenDataModule(pl.LightningDataModule):
             "attention_mask": tokenized_inputs["attention_mask"],
             "concepts": concepts,
         } | label_dict
+
+    def _collate_fn_valid(self, batch):
+        concepts = []
+        inputs = []
+        targets = []
+        for data in batch:
+            conc = data["concepts"]
+            concepts.append(conc)
+            input = self._perform_enhancement_on_input(conc)
+            inputs.append(input)
+            targets.append(data["target"])
+
+        tokenized_inputs = self.tokenizer(
+            inputs, padding="max_length", return_tensors="pt"
+        )
+        tokenized_targets = self.tokenizer(
+            targets, padding="max_length", return_tensors="pt"
+        )
+
+        return {
+            "input_ids": tokenized_inputs["input_ids"],
+            "attention_mask": tokenized_inputs["attention_mask"],
+            "labels": tokenized_targets["input_ids"],
+            "concepts": concepts,
+        }
 
     def _get_label_dict(self, batch):
         # return a dictionary containing either {"labels"} or {"labels" and "mc_labels"}
@@ -106,9 +131,11 @@ class CommonGenDataModuleFromDisk(CommonGenDataModule):
 
     def setup_data(self):
         dataset = load_from_disk(self.config.dataset_path)
-        self.train = dataset["train"]
-        self.validation = _select_unique_inputs(dataset["test"], self.config)
-        self.test = None
+        self.train = torch.utils.data.ConcatDataset([dataset["train"], dataset["test"]])
+        self.validation = _select_unique_inputs(
+            load_dataset("common_gen", split="validation"), self.config,
+        )
+        self.test = load_dataset("common_gen", split="test")
 
     def _get_label_dict(self, batch):
         targets = [data["input"] for data in batch]
@@ -133,16 +160,10 @@ def _select_unique_inputs(data, config):
     for i, ex in enumerate(data):
         concept_str = " ".join(ex["concepts"])
         conceptset_data = references.setdefault(concept_str, [])
-        # add reference if the dataset does not contain the "contains_all_concepts" key
-        # or if it does and the value is True
-        if "contains_all_concepts" not in ex or ex["contains_all_concepts"]:
-            reference_key = "target" if "target" in ex else "input"
-            conceptset_data.append(ex[reference_key])
-        else:
-            conceptset_data.append(ex["output"])
+        conceptset_data.append(ex["target"])
         if concept_str in seen_concepts:
             continue
-        seen_concepts.add(concept_str)
+        seen_concepts.add(ex["concept_set_idx"])
         unique_examples.append(i)
     with open(config.valid_path, "w") as file:
         file.write(json.dumps(references, indent=4))

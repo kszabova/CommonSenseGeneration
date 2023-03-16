@@ -90,14 +90,14 @@ class CommonGenModule(pl.LightningModule):
     def _get_examples(self, batch):
         reference_key = "labels" if "labels" in batch else "lm_labels"
         src_text = self.tokenizer.batch_decode(
-            batch["input_ids"], skip_special_tokens=False
+            batch["input_ids"], skip_special_tokens=True
         )
         ref_text = self.tokenizer.batch_decode(
-            batch[reference_key], skip_special_tokens=False
+            batch[reference_key], skip_special_tokens=True
         )
         generated_ids = self.model.generate(batch["input_ids"])
         generated_text = self.tokenizer.batch_decode(
-            generated_ids, skip_special_tokens=False
+            generated_ids, skip_special_tokens=True
         )
 
         return {
