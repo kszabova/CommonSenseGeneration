@@ -8,8 +8,6 @@ from transformers.models.bart.modeling_bart import (
     shift_tokens_right,
 )
 
-from lightning_modules.common_gen_data_module import CommonGenDataModuleFromDisk
-
 
 class BartDoubleHeadsModel(BartPretrainedModel):
     """
@@ -107,6 +105,12 @@ class BartDoubleHeadsModel(BartPretrainedModel):
             decoder_input_ids = shift_tokens_right(
                 labels, self.config.pad_token_id, self.config.decoder_start_token_id
             )
+
+        if mc_labels is None and input_ids is not None:
+            mc_labels = torch.ones(
+                (input_ids.shape[0], 1, 1), dtype=torch.long, device=input_ids.device
+            )
+
         outputs = self.model(
             input_ids,
             attention_mask=attention_mask,
