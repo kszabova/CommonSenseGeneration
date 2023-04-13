@@ -49,6 +49,7 @@ def setup_model(config: Config, iteration):
         model = BartForConditionalGeneration.from_pretrained("facebook/bart-base")
     elif config.model_type == "double_heads":
         model = BartDoubleHeadsModel.from_pretrained("facebook/bart-base")
+        model.set_mc_loss_weight(config.mc_loss_weight)
     # set up data loader
     data = None
     if config.data_type == "hub":

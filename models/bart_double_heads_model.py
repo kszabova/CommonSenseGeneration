@@ -48,6 +48,9 @@ class BartDoubleHeadsModel(BartPretrainedModel):
         # Initialize weights and apply final processing
         self.init_weights()
 
+    def set_mc_loss_weight(self, weight):
+        self.mc_loss_weight = weight
+
     def get_encoder(self):
         return self.model.get_encoder()
 
@@ -161,6 +164,7 @@ class BartDoubleHeadsModel(BartPretrainedModel):
         if mc_labels is not None and mc_logits is not None:
             mc_loss_fct = torch.nn.MSELoss()
             mc_loss = mc_loss_fct(mc_logits.view(-1), mc_labels.view(-1))
+            mc_loss = mc_loss * self.mc_loss_weight
 
         output_lm = (lm_logits,) + outputs[1:]
         output_mc = (mc_logits,) + outputs[1:]
