@@ -38,6 +38,7 @@ class Config:
     batch_size: int = 3
     min_epochs: int = 1
     max_epochs: int = 1
+    mc_loss_weight: float = 1.0
 
     # environment
     gpus: int = 1
