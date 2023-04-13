@@ -138,13 +138,12 @@ class BartDoubleHeadsModel(BartPretrainedModel):
         lm_loss = None
         if labels is not None:
             lm_loss_fct = torch.nn.CrossEntropyLoss()
-            # zero-out logits for incomplete sentences so that they don't contribute to loss
-            logits_zerod = lm_logits * mc_labels.view(-1, 1, 1)
-            labels_zerod = labels * mc_labels.view(-1, 1).long()
-            lm_loss = lm_loss_fct(
-                logits_zerod.view(-1, logits_zerod.shape[-1]), labels_zerod.view(-1)
-            )
-            lm_loss = lm_loss
+            lm_loss = 0
+            for logit, label, mc_label in zip(lm_logits, labels, mc_labels):
+                if mc_label == 1:
+                    lm_loss += lm_loss_fct(
+                        logit.view(-1, logit.shape[-1]), label.view(-1)
+                    )
 
         # classification
         # during training, we assume that mc_logits are never None
