@@ -12,6 +12,7 @@ learning_rate: 2.0e-5
 batch_size: 3
 min_epochs: 2
 max_epochs: 2
+mc_loss_weight: 0
 gpus: 0
 base_dir:
 model_name: baseline
