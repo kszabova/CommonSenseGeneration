@@ -49,11 +49,13 @@ class Conceptnet:
         self,
         base_url=BASE_URL,
         query_url=QUERY_URL,
+        data_dir=DATA_DIR,
         allowed_relations=ALLOWED_RELATIONS,
         graph_filename=None,
     ):
         self.base_url = base_url
         self.query_url = query_url
+        self.data_dir = data_dir
         self.allowed_relations = allowed_relations
 
         self.graph_filename = graph_filename
@@ -121,7 +123,7 @@ class Conceptnet:
         return resource.get(item)
 
     def load_from_file(self):
-        graph_path = DATA_DIR + self.graph_filename
+        graph_path = self.data_dir + self.graph_filename
         return nx.read_gpickle(graph_path)
 
     def create_local(self, **kwargs):
@@ -176,8 +178,8 @@ class Conceptnet:
         return conceptnet_data
 
     def _load_resources(self):
-        concept_path = DATA_DIR + "concept.txt"
-        relation_path = DATA_DIR + "relation.txt"
+        concept_path = self.data_dir + "concept.txt"
+        relation_path = self.data_dir + "relation.txt"
 
         concept2id = {}
         id2concept = {}
