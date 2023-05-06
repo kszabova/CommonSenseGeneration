@@ -156,7 +156,9 @@ class Conceptnet:
 
         conceptnet_data = HeteroData()
 
-        concepts = torch.tensor(list(self.graph.nodes))
+        # some nodes are actually isolated and not in the Conceptnet object,
+        # but we still want them in the GNN
+        concepts = torch.arange(0, len(self.resources.concept2id.keys()))
         conceptnet_data["concept"].node_id = concepts
 
         edges = {}
