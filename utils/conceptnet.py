@@ -4,6 +4,8 @@ import requests
 import networkx as nx
 import torch
 
+import torch_geometric.transforms as T
+
 from torch_geometric.data import HeteroData
 
 from typing import NamedTuple
@@ -162,11 +164,8 @@ class Conceptnet:
             rel = self.resources.id2relation[data["rel"]]
             if rel not in edges:
                 edges[rel] = {"from": [], "to": []}
-                edges[f"{rel}_inv"] = {"from": [], "to": []}
             edges[rel]["from"].append(start)
             edges[rel]["to"].append(end)
-            edges[f"{rel}_inv"]["from"].append(end)
-            edges[f"{rel}_inv"]["to"].append(start)
 
         for rel, edge_ids in edges.items():
             nodes_from = torch.tensor(edge_ids["from"])
@@ -174,6 +173,8 @@ class Conceptnet:
             conceptnet_data["concept", rel, "concept"].edge_index = torch.stack(
                 [nodes_from, nodes_to], dim=0
             )
+
+        conceptnet_data = T.ToUndirected(merge=False)(conceptnet_data)
 
         return conceptnet_data
 
