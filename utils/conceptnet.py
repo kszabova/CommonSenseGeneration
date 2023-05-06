@@ -2,6 +2,9 @@ import time
 import requests
 
 import networkx as nx
+import torch
+
+from torch_geometric.data import HeteroData
 
 from typing import NamedTuple
 
@@ -92,9 +95,8 @@ class Conceptnet:
         if not self.resources:
             self._load_resources()
 
-        graph_path = DATA_DIR + self.graph_filename
         if not self.graph:
-            self.graph = nx.read_gpickle(graph_path)
+            self.graph = self.load_from_file()
 
         if kwargs["mode"] == "shortest_path":
             return self._local_shortest_path(kwargs["start"], kwargs["end"])
@@ -120,8 +122,7 @@ class Conceptnet:
 
     def load_from_file(self):
         graph_path = DATA_DIR + self.graph_filename
-        if not self.graph:
-            self.graph = nx.read_gpickle(graph_path)
+        return nx.read_gpickle(graph_path)
 
     def create_local(self, **kwargs):
         # load resources
@@ -142,6 +143,37 @@ class Conceptnet:
             nx.write_gpickle(self.graph, kwargs["filepath"])
         else:
             raise RuntimeError("Unknown mode for local Conceptnet creation")
+
+    def to_pyg_data(self):
+        if not self.resources:
+            self._load_resources()
+        if not self.graph:
+            self.graph = self.load_from_file()
+
+        conceptnet_data = HeteroData()
+
+        concepts = torch.tensor(list(self.graph.nodes))
+        conceptnet_data["concept"].node_id = concepts
+
+        edges = {}
+        for start, end, data in self.graph.edges(data=True):
+            rel = self.resources.id2relation[data["rel"]]
+            if rel not in edges:
+                edges[rel] = {"from": [], "to": []}
+                edges[f"{rel}_inv"] = {"from": [], "to": []}
+            edges[rel]["from"].append(start)
+            edges[rel]["to"].append(end)
+            edges[f"{rel}_inv"]["from"].append(end)
+            edges[f"{rel}_inv"]["to"].append(start)
+
+        for rel, edge_ids in edges.items():
+            nodes_from = torch.tensor(edge_ids["from"])
+            nodes_to = torch.tensor(edge_ids["to"])
+            conceptnet_data["concept", rel, "concept"].edge_index = torch.stack(
+                [nodes_from, nodes_to], dim=0
+            )
+
+        return conceptnet_data
 
     def _load_resources(self):
         concept_path = DATA_DIR + "concept.txt"
