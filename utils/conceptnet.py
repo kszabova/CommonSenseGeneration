@@ -118,6 +118,11 @@ class Conceptnet:
         resource = resource_name[resource]
         return resource.get(item)
 
+    def load_from_file(self):
+        graph_path = DATA_DIR + self.graph_filename
+        if not self.graph:
+            self.graph = nx.read_gpickle(graph_path)
+
     def create_local(self, **kwargs):
         # load resources
         if not self.resources:
