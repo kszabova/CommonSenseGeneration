@@ -2,6 +2,11 @@ import time
 import requests
 
 import networkx as nx
+import torch
+
+import torch_geometric.transforms as T
+
+from torch_geometric.data import HeteroData
 
 from typing import NamedTuple
 
@@ -46,11 +51,13 @@ class Conceptnet:
         self,
         base_url=BASE_URL,
         query_url=QUERY_URL,
+        data_dir=DATA_DIR,
         allowed_relations=ALLOWED_RELATIONS,
         graph_filename=None,
     ):
         self.base_url = base_url
         self.query_url = query_url
+        self.data_dir = data_dir
         self.allowed_relations = allowed_relations
 
         self.graph_filename = graph_filename
@@ -92,9 +99,8 @@ class Conceptnet:
         if not self.resources:
             self._load_resources()
 
-        graph_path = DATA_DIR + self.graph_filename
         if not self.graph:
-            self.graph = nx.read_gpickle(graph_path)
+            self.graph = self.load_from_file()
 
         if kwargs["mode"] == "shortest_path":
             return self._local_shortest_path(kwargs["start"], kwargs["end"])
@@ -118,6 +124,10 @@ class Conceptnet:
         resource = resource_name[resource]
         return resource.get(item)
 
+    def load_from_file(self):
+        graph_path = self.data_dir + self.graph_filename
+        return nx.read_gpickle(graph_path)
+
     def create_local(self, **kwargs):
         # load resources
         if not self.resources:
@@ -138,9 +148,41 @@ class Conceptnet:
         else:
             raise RuntimeError("Unknown mode for local Conceptnet creation")
 
+    def to_pyg_data(self):
+        if not self.resources:
+            self._load_resources()
+        if not self.graph:
+            self.graph = self.load_from_file()
+
+        conceptnet_data = HeteroData()
+
+        # some nodes are actually isolated and not in the Conceptnet object,
+        # but we still want them in the GNN
+        concepts = torch.arange(0, len(self.resources.concept2id.keys()))
+        conceptnet_data["concept"].node_id = concepts
+
+        edges = {}
+        for start, end, data in self.graph.edges(data=True):
+            rel = self.resources.id2relation[data["rel"]]
+            if rel not in edges:
+                edges[rel] = {"from": [], "to": []}
+            edges[rel]["from"].append(start)
+            edges[rel]["to"].append(end)
+
+        for rel, edge_ids in edges.items():
+            nodes_from = torch.tensor(edge_ids["from"])
+            nodes_to = torch.tensor(edge_ids["to"])
+            conceptnet_data["concept", rel, "concept"].edge_index = torch.stack(
+                [nodes_from, nodes_to], dim=0
+            )
+
+        conceptnet_data = T.ToUndirected(merge=False)(conceptnet_data)
+
+        return conceptnet_data
+
     def _load_resources(self):
-        concept_path = DATA_DIR + "concept.txt"
-        relation_path = DATA_DIR + "relation.txt"
+        concept_path = self.data_dir + "concept.txt"
+        relation_path = self.data_dir + "relation.txt"
 
         concept2id = {}
         id2concept = {}
