@@ -9,6 +9,7 @@ class InputEnhancer:
         "pair",
         "subgraph",
         "spantree",
+        "gnn",
     ]
 
     def __init__(
@@ -35,6 +36,7 @@ class InputEnhancer:
             "pair": self.get_pair_enhanced_input,
             "subgraph": self.get_subgraph_enhanced_input,
             "spantree": self.get_spantree_enhanced_input,
+            "gnn": self.get_gnn_enhanced_input,
         }
         return enhancement_fct_map[self.enhancement_type](concepts)
 
@@ -106,5 +108,13 @@ class InputEnhancer:
         input = " ".join(concepts)
         sentences = self.enhancement.get(input, [])
         input += f" {self.sep_token} " + f" {self.sep_token} ".join(sentences)
+        return input
+
+    def get_gnn_enhanced_input(self, concepts):
+        input = " ".join(concepts)
+        input += f" {self.sep_token}"
+        for concept in concepts:
+            if concept in self.enhancement:
+                input += " " + " ".join(self.enhancement[concept])
         return input
 
