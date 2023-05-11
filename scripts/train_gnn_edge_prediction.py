@@ -59,13 +59,12 @@ model = EdgePredictionModel(64, conceptnet.conceptnet_data)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = model.to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-for epoch in range(1, 6):
+for epoch in range(1, 4):
     total_loss = total_examples = 0
     for sampled_data in tqdm.tqdm(train_loader):
         optimizer.zero_grad()
         sampled_data.to(device)
         pred = model(sampled_data)
-        # print(pred)
         ground_truth = sampled_data["concept", "samesentence", "concept"].edge_label
         loss = F.binary_cross_entropy_with_logits(pred, ground_truth)
         loss.backward()
