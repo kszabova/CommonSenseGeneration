@@ -169,7 +169,7 @@ def _select_unique_inputs(data, config):
         concept_str = " ".join(ex["concepts"])
         conceptset_data = references.setdefault(concept_str, [])
         conceptset_data.append(ex["target"])
-        if concept_str in seen_concepts:
+        if ex["concept_set_idx"] in seen_concepts:
             continue
         seen_concepts.add(ex["concept_set_idx"])
         unique_examples.append(i)
