@@ -51,6 +51,7 @@ class Config:
 
     iterations: int = 1
     remove_dev_duplicates: bool = False
+    padding: str = "longest"
 
     @staticmethod
     def load_config(path):

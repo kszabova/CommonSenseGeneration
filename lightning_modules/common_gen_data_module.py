@@ -64,7 +64,7 @@ class CommonGenDataModule(pl.LightningDataModule):
             inputs.append(input)
 
         tokenized_inputs = self.tokenizer(
-            inputs, padding="max_length", return_tensors="pt"
+            inputs, padding=self.config.padding, return_tensors="pt",
         )
 
         label_dict = self._get_label_dict(batch)
@@ -87,10 +87,10 @@ class CommonGenDataModule(pl.LightningDataModule):
             targets.append(data["target"])
 
         tokenized_inputs = self.tokenizer(
-            inputs, padding="max_length", return_tensors="pt"
+            inputs, padding=self.config.padding, return_tensors="pt",
         )
         tokenized_targets = self.tokenizer(
-            targets, padding="max_length", return_tensors="pt"
+            inputs, padding=self.config.padding, return_tensors="pt",
         )
 
         return {
@@ -118,7 +118,7 @@ class CommonGenDataModuleFromHub(CommonGenDataModule):
     def _get_label_dict(self, batch):
         targets = [data["target"] for data in batch]
         tokenized_targets = self.tokenizer(
-            targets, padding="max_length", return_tensors="pt"
+            targets, padding=self.config.padding, return_tensors="pt",
         )
         return {
             "labels": tokenized_targets["input_ids"],
@@ -140,7 +140,7 @@ class CommonGenDataModuleFromDisk(CommonGenDataModule):
     def _get_label_dict(self, batch):
         targets = [data["input"] for data in batch]
         tokenized_targets = self.tokenizer(
-            targets, padding="max_length", return_tensors="pt"
+            targets, padding=self.config.padding, return_tensors="pt",
         )
         mc_labels = [data["contains_all_concepts"] for data in batch]
         return {
@@ -161,7 +161,7 @@ def _select_unique_inputs(data, config):
         concept_str = " ".join(ex["concepts"])
         conceptset_data = references.setdefault(concept_str, [])
         conceptset_data.append(ex["target"])
-        if concept_str in seen_concepts:
+        if ex["concept_set_idx"] in seen_concepts:
             continue
         seen_concepts.add(ex["concept_set_idx"])
         unique_examples.append(i)

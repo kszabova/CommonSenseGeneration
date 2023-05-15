@@ -1,5 +1,7 @@
 import logging
 
+import transformers
+
 import torch
 import pytorch_lightning as pl
 
@@ -10,7 +12,7 @@ class CommonGenModule(pl.LightningModule):
 
     def __init__(self, model, tokenizer, hparams, log_interval):
         super().__init__()
-        self.model = model
+        self.model: transformers.BartForConditionalGeneration = model
         self.tokenizer = tokenizer
         self.learning_rate = hparams["learning_rate"]
         self.log_interval = log_interval
@@ -21,7 +23,7 @@ class CommonGenModule(pl.LightningModule):
         self, **kwargs,
     ):
         kwargs = {k: v for k, v in kwargs.items() if k not in self.IGNORED_BATCH_KEYS}
-        return self.model(**kwargs,)
+        return self.model(**kwargs)
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
