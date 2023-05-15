@@ -1,5 +1,7 @@
 import logging
 
+import transformers
+
 import torch
 import pytorch_lightning as pl
 
@@ -10,7 +12,7 @@ class CommonGenModule(pl.LightningModule):
 
     def __init__(self, model, tokenizer, hparams, log_interval):
         super().__init__()
-        self.model = model
+        self.model: transformers.BartForConditionalGeneration = model
         self.tokenizer = tokenizer
         self.learning_rate = hparams["learning_rate"]
         self.log_interval = log_interval
@@ -20,15 +22,17 @@ class CommonGenModule(pl.LightningModule):
     def forward(
         self, **kwargs,
     ):
-        kwargs = {k: v for k, v in kwargs.items() if k not in self.IGNORED_BATCH_KEYS}
-        return self.model(**kwargs,)
+        # import pudb; pu.db
+        # kwargs = {k: v for k, v in kwargs.items() if k not in self.IGNORED_BATCH_KEYS}
+        return self.model(**kwargs)
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
         return optimizer
 
     def training_step(self, batch, batch_idx):
-        output = self(**batch)
+        kwargs = {k: v for k, v in batch.items() if k not in self.IGNORED_BATCH_KEYS}
+        output = self(**kwargs, use_cache=False)
         loss = output[0]
 
         if batch_idx % self.log_interval == 0:
@@ -53,7 +57,8 @@ class CommonGenModule(pl.LightningModule):
                 self.logger.info(f"PREDICTION: {pred}")
 
     def validation_step(self, batch, batch_idx):
-        output = self(**batch)
+        kwargs = {k: v for k, v in batch.items() if k not in self.IGNORED_BATCH_KEYS}
+        output = self(**kwargs)
         loss = output[0]
 
         examples = self._get_examples(batch)
