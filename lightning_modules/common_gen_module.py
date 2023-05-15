@@ -22,8 +22,7 @@ class CommonGenModule(pl.LightningModule):
     def forward(
         self, **kwargs,
     ):
-        # import pudb; pu.db
-        # kwargs = {k: v for k, v in kwargs.items() if k not in self.IGNORED_BATCH_KEYS}
+        kwargs = {k: v for k, v in kwargs.items() if k not in self.IGNORED_BATCH_KEYS}
         return self.model(**kwargs)
 
     def configure_optimizers(self):
@@ -31,8 +30,7 @@ class CommonGenModule(pl.LightningModule):
         return optimizer
 
     def training_step(self, batch, batch_idx):
-        kwargs = {k: v for k, v in batch.items() if k not in self.IGNORED_BATCH_KEYS}
-        output = self(**kwargs, use_cache=False)
+        output = self(**batch)
         loss = output[0]
 
         if batch_idx % self.log_interval == 0:
@@ -57,8 +55,7 @@ class CommonGenModule(pl.LightningModule):
                 self.logger.info(f"PREDICTION: {pred}")
 
     def validation_step(self, batch, batch_idx):
-        kwargs = {k: v for k, v in batch.items() if k not in self.IGNORED_BATCH_KEYS}
-        output = self(**kwargs)
+        output = self(**batch)
         loss = output[0]
 
         examples = self._get_examples(batch)

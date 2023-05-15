@@ -63,7 +63,9 @@ class CommonGenDataModule(pl.LightningDataModule):
             input = self._perform_enhancement_on_input(conc)
             inputs.append(input)
 
-        tokenized_inputs = self.tokenizer(inputs, padding=True, return_tensors="pt",)
+        tokenized_inputs = self.tokenizer(
+            inputs, padding=self.config.padding, return_tensors="pt",
+        )
 
         label_dict = self._get_label_dict(batch)
 
@@ -84,8 +86,12 @@ class CommonGenDataModule(pl.LightningDataModule):
             inputs.append(input)
             targets.append(data["target"])
 
-        tokenized_inputs = self.tokenizer(inputs, padding=True, return_tensors="pt",)
-        tokenized_targets = self.tokenizer(inputs, padding=True, return_tensors="pt",)
+        tokenized_inputs = self.tokenizer(
+            inputs, padding=self.config.padding, return_tensors="pt",
+        )
+        tokenized_targets = self.tokenizer(
+            inputs, padding=self.config.padding, return_tensors="pt",
+        )
 
         return {
             "input_ids": tokenized_inputs["input_ids"],
@@ -113,7 +119,9 @@ class CommonGenDataModuleFromHub(CommonGenDataModule):
 
     def _get_label_dict(self, batch):
         targets = [data["target"] for data in batch]
-        tokenized_targets = self.tokenizer(targets, padding=True, return_tensors="pt",)
+        tokenized_targets = self.tokenizer(
+            targets, padding=self.config.padding, return_tensors="pt",
+        )
         return {
             "labels": tokenized_targets["input_ids"],
         }
@@ -139,7 +147,9 @@ class CommonGenDataModuleFromDisk(CommonGenDataModule):
 
     def _get_label_dict(self, batch):
         targets = [data["input"] for data in batch]
-        tokenized_targets = self.tokenizer(targets, padding=True, return_tensors="pt",)
+        tokenized_targets = self.tokenizer(
+            targets, padding=self.config.padding, return_tensors="pt",
+        )
         mc_labels = [data["contains_all_concepts"] for data in batch]
         return {
             "labels": tokenized_targets["input_ids"],
