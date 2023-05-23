@@ -45,20 +45,6 @@ for split in ["train", "validation", "test"]:
 concept_dict = {}
 max_reachable = 512
 k = 5
-# for concept in tqdm.tqdm(concepts):
-#     concept_idx = conceptnet.conceptnet.resources.concept2id.get(concept)
-#     if not concept_idx:
-#         continue
-#     if not conceptnet.conceptnet.graph.has_node(concept_idx):
-#         continue
-#     reachable_indices = []
-#     queue = [concept_idx]
-#     while len(reachable_indices) < max_reachable and queue:
-#         cur_idx = queue.pop(0)
-#         neighbors = list(conceptnet.conceptnet.graph.neighbors(cur_idx))
-#         reachable_indices.extend(neighbors)
-#         queue.extend(neighbors)
-#     concept_dict[concept_idx] = reachable_indices[:max_reachable]
 for concept in tqdm.tqdm(concepts):
     concept_idx = conceptnet.conceptnet.resources.concept2id.get(concept)
     if not concept_idx:

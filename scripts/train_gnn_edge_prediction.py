@@ -94,7 +94,9 @@ for sampled_data in tqdm.tqdm(val_loader):
     with torch.no_grad():
         sampled_data.to(device)
         preds.append(model(sampled_data))
-        ground_truths.append(sampled_data["user", "rates", "movie"].edge_label)
+        ground_truths.append(
+            sampled_data["concept", "samesentence", "concept"].edge_label
+        )
 pred = torch.cat(preds, dim=0).cpu().numpy()
 ground_truth = torch.cat(ground_truths, dim=0).cpu().numpy()
 auc = roc_auc_score(ground_truth, pred)
