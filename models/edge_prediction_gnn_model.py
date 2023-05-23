@@ -27,8 +27,11 @@ class Classifier(torch.nn.Module):
         # Convert node embeddings to edge-level representations:
         edge_feat_concepts1 = x_concepts[edge_label_index[0]]
         edge_feat_concepts2 = x_concepts[edge_label_index[1]]
+        return torch.nn.CosineSimilarity(dim=1)(
+            edge_feat_concepts1, edge_feat_concepts2
+        )
         # Apply dot-product to get a prediction per supervision edge:
-        return (edge_feat_concepts1 * edge_feat_concepts2).sum(dim=-1)
+        # return (edge_feat_concepts1 * edge_feat_concepts2).sum(dim=-1)
 
 
 class EdgePredictionModel(torch.nn.Module):
