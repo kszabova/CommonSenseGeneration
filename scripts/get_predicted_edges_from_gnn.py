@@ -1,8 +1,10 @@
 import argparse
 import tqdm
 import json
+import random
 
 import torch
+import networkx as nx
 
 from datasets import load_dataset
 
@@ -19,7 +21,7 @@ parser.add_argument(
     "--out_file",
     type=str,
     help="Where to store the predicted edges",
-    default="data/predicted_edges.json",
+    default="data/predicted_edges2.json",
 )
 args = parser.parse_args()
 
@@ -41,21 +43,38 @@ for split in ["train", "validation", "test"]:
 # find 128 concepts starting from each concept in common gen
 # save to dictionary in the form of {concept_idx: [reachable concept_idxs]}
 concept_dict = {}
-max_reachable = 128
+max_reachable = 512
+k = 5
+# for concept in tqdm.tqdm(concepts):
+#     concept_idx = conceptnet.conceptnet.resources.concept2id.get(concept)
+#     if not concept_idx:
+#         continue
+#     if not conceptnet.conceptnet.graph.has_node(concept_idx):
+#         continue
+#     reachable_indices = []
+#     queue = [concept_idx]
+#     while len(reachable_indices) < max_reachable and queue:
+#         cur_idx = queue.pop(0)
+#         neighbors = list(conceptnet.conceptnet.graph.neighbors(cur_idx))
+#         reachable_indices.extend(neighbors)
+#         queue.extend(neighbors)
+#     concept_dict[concept_idx] = reachable_indices[:max_reachable]
 for concept in tqdm.tqdm(concepts):
     concept_idx = conceptnet.conceptnet.resources.concept2id.get(concept)
     if not concept_idx:
         continue
     if not conceptnet.conceptnet.graph.has_node(concept_idx):
         continue
-    reachable_indices = []
-    queue = [concept_idx]
-    while len(reachable_indices) < max_reachable and queue:
-        cur_idx = queue.pop(0)
-        neighbors = list(conceptnet.conceptnet.graph.neighbors(cur_idx))
-        reachable_indices.extend(neighbors)
-        queue.extend(neighbors)
-    concept_dict[concept_idx] = reachable_indices[:max_reachable]
+    kth_order_neighbors = nx.single_source_shortest_path_length(
+        conceptnet.conceptnet.graph, concept_idx, cutoff=k
+    )
+    kth_order_neighbors = kth_order_neighbors.keys()
+    neighbor_subset = (
+        random.sample(kth_order_neighbors, max_reachable)
+        if len(kth_order_neighbors) > max_reachable
+        else list(kth_order_neighbors)
+    )
+    concept_dict[concept_idx] = neighbor_subset
 
 # create edge label index
 edges_start = []
