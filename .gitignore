@@ -14,3 +14,4 @@ trained_models/
 data/classifier_data.data/
 ./config/
 data/error_fixer_data.data
+text/
