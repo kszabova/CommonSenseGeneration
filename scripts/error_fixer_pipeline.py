@@ -7,6 +7,7 @@ import torch
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 from tqdm import tqdm
 
+from metrics import ConceptRecall
 from utils.model_pipeline import ModelPipeline
 
 TOKENIZER = AutoTokenizer.from_pretrained("facebook/bart-base")
@@ -121,12 +122,34 @@ def main():
             predictions=predictions, references=sacrebleu_references
         )
 
+        unrolled_refs = []
+        unrolled_preds = []
+        for refs, pred in zip(references, predictions):
+            unrolled_refs.extend(refs)
+            unrolled_preds.extend([pred] * len(refs))
+
+        rouge = evaluate.load("rouge")
+        rouge_results = rouge.compute(
+            predictions=unrolled_preds, references=unrolled_refs
+        )
+
+        meteor = evaluate.load("meteor")
+        meteor_results = meteor.compute(
+            predictions=unrolled_preds, references=unrolled_refs
+        )
+
+        concept_recall = ConceptRecall()
+        concept_recall_results = concept_recall.compute(concepts, predictions)
+
         with open(args.output_path, "w") as f:
             f.write(
                 json.dumps(
                     {
                         "generated_sentences": generated_sentences,
                         "sacrebleu": sacrebleu_results,
+                        "rouge": rouge_results,
+                        "meteor": meteor_results,
+                        "concept_recall": concept_recall_results,
                     },
                     indent=4,
                 )
