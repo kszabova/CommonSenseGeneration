@@ -112,9 +112,11 @@ def main():
         # compute BLEU
         predictions = []
         references = []
+        concepts = []
         for value in generated_sentences.values():
             predictions.append(value["predictions"][0])
             references.append(value["references"])
+            concepts.append(value["concepts"])
 
         sacrebleu = evaluate.load("sacrebleu")
         sacrebleu_references = _prepare_refs_for_sacrebleu(references)
