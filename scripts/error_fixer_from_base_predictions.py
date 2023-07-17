@@ -36,6 +36,7 @@ with open(args.base_predictions) as f:
 
 error_fixer_model = AutoModelForSeq2SeqLM.from_pretrained(args.error_fixer_model)
 
+device = "cuda" if torch.cuda.is_available() else "cpu"
 generated_sentences = {}
 for value in tqdm(base_predictions["generated_sentences"].values()):
     concatted_concepts_and_output = (
@@ -44,7 +45,7 @@ for value in tqdm(base_predictions["generated_sentences"].values()):
     input_ids = TOKENIZER(concatted_concepts_and_output, return_tensors="pt")[
         "input_ids"
     ]
-    output = error_fixer_model.generate(input_ids)
+    output = error_fixer_model.generate(input_ids.to(device))
     decoded = TOKENIZER.decode(output[0], skip_special_tokens=True)
     generated_sentences[" ".join(value["concepts"])] = {
         "base_predictions": value["predictions"],
@@ -54,7 +55,6 @@ for value in tqdm(base_predictions["generated_sentences"].values()):
         "changed_output": [value["predictions"][0] != decoded],
     }
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
 # compute BLEU
 predictions = []
 references = []
